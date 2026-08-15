@@ -44,3 +44,7 @@ yarn-error.log*
 .idea/
 .vscode/
 *.swp
+
+# Planning & Docs
+implementation_plan.md
+a3_cloud_platform_prompt.md
