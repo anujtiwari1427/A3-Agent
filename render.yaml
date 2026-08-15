@@ -13,14 +13,3 @@ services:
         generateValue: true
       - key: DATABASE_URL
         value: sqlite:///./a3_local.db
-
-  # Next.js Frontend Service (100% Free Tier)
-  - type: web
-    name: a3-frontend
-    runtime: node
-    plan: free
-    buildCommand: "cd a3/frontend && npm install && npm run build"
-    startCommand: "cd a3/frontend && npm start"
-    envVars:
-      - key: NODE_ENV
-        value: production
