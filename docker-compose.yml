@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./a3/backend
+      dockerfile: Dockerfile
+    container_name: a3_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MODE=local
+      - JWT_SECRET=a3_super_secret_jwt_key_for_production
+      - DATABASE_URL=sqlite:///./a3_local.db
+    volumes:
+      - a3_data:/app/data
+
+  frontend:
+    build:
+      context: ./a3/frontend
+      dockerfile: Dockerfile
+    container_name: a3_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+
+volumes:
+  a3_data:

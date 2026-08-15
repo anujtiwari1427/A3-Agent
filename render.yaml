@@ -1,0 +1,24 @@
+services:
+  # FastAPI Backend Service
+  - type: web
+    name: a3-backend
+    runtime: python
+    buildCommand: "cd a3/backend && pip install -r requirements.txt"
+    startCommand: "cd a3/backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: MODE
+        value: local
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///./a3_local.db
+
+  # Next.js Frontend Service
+  - type: web
+    name: a3-frontend
+    runtime: node
+    buildCommand: "cd a3/frontend && npm install && npm run build"
+    startCommand: "cd a3/frontend && npm start"
+    envVars:
+      - key: NODE_ENV
+        value: production
