@@ -1,0 +1,11 @@
+from .auth import router as auth_router
+from .datasets import router as datasets_router
+from .profiling import router as profiling_router
+from .cleaning import router as cleaning_router
+from .analytics import router as analytics_router
+from .forecasting import router as forecasting_router
+from .anomalies import router as anomalies_router
+from .whatif import router as whatif_router
+from .ai import router as ai_router
+from .reports import router as reports_router
+from .health import router as health_router
