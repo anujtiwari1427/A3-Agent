@@ -16,6 +16,7 @@ from .models.domain import Org, User
 from .routers.ai import router as ai_router
 from .routers.analytics import router as analytics_router
 from .routers.anomalies import router as anomalies_router
+from .routers.audit import router as audit_router
 from .routers.auth import router as auth_router
 from .routers.cleaning import router as cleaning_router
 from .routers.datasets import router as datasets_router
@@ -36,28 +37,19 @@ def _initialize_database() -> None:
 
 
 def _seed_local_admin() -> None:
-    """Create a local-only admin with an explicit or one-time random password."""
     if settings.MODE != "local":
         return
-
     db = SessionLocal()
     try:
         if db.query(User).count() > 0:
             return
-
         org = db.query(Org).filter(Org.slug == "local").first()
         if not org:
-            org = Org(
-                id=str(uuid.uuid4()),
-                name="Local Workspace",
-                slug="local",
-                plan="enterprise_local",
-            )
+            org = Org(id=str(uuid.uuid4()), name="Local Workspace", slug="local", plan="enterprise_local")
             db.add(org)
             db.flush()
-
         password = settings.LOCAL_ADMIN_PASSWORD or secrets.token_urlsafe(16)
-        admin = User(
+        db.add(User(
             id=str(uuid.uuid4()),
             email=settings.LOCAL_ADMIN_EMAIL,
             hashed_password=hash_password(password),
@@ -65,8 +57,7 @@ def _seed_local_admin() -> None:
             role="admin",
             org_id=org.id,
             is_active=True,
-        )
-        db.add(admin)
+        ))
         db.commit()
         logger.warning("Local admin created: email=%s password=%s", settings.LOCAL_ADMIN_EMAIL, password)
     finally:
@@ -83,7 +74,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="A3 Intelligence & Analytics Platform API",
     description="Modular enterprise analytics, forecasting, anomaly detection and AI Copilot API",
-    version="2.3.0",
+    version="2.4.0",
     lifespan=lifespan,
 )
 
@@ -97,6 +88,7 @@ app.add_middleware(
 
 for router in (
     auth_router,
+    audit_router,
     datasets_router,
     profiling_router,
     cleaning_router,
