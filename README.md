@@ -1,137 +1,145 @@
 # A3 — Advanced Analytics & Intelligence Platform
 
-> **Modular Enterprise Data Analytics, Forecasting, Anomaly Detection & AI Copilot Suite**
+> **Modular Data Analytics, Forecasting, Anomaly Detection & AI Copilot Suite**
 
----
+A3 is a local-first analytics platform built with **FastAPI, SQLAlchemy, Next.js, React and Tailwind CSS**. It combines dataset management, automated profiling, non-destructive cleaning, statistical analytics, forecasting, anomaly detection, What-If simulation, grounded AI reasoning and executive reporting.
 
-## 🌟 Overview
+## ✨ Why A3
 
-**A3** is a high-performance, modular, and local-first data intelligence platform. It provides business intelligence, automated statistical profiling, non-destructive data cleaning, interactive visual charting, forward-looking time-series forecasting, statistical outlier detection, parameter sensitivity (What-If) simulations, and privacy-grounded AI copilot reasoning.
-
-A3 is designed to run **100% locally** with SQLite and local statistical engines, while maintaining clean architectural boundaries for PostgreSQL and cloud deployment readiness.
-
----
+- **Local-first:** SQLite + local analytics + optional Ollama
+- **Privacy-focused:** Copilot can reason from computed dataset metadata instead of raw records
+- **Modular:** FastAPI routers, services, schemas and typed frontend API client
+- **Analytics-focused:** profiling, correlation, regression, forecasting and anomaly detection
+- **Cloud-ready architecture:** PostgreSQL/Supabase configuration is separated from local mode
 
 ## 🏗️ Architecture
 
-```
-A3-agent/
+```text
+A3-Agent/
 ├── a3/
-│   ├── backend/                      # FastAPI Python REST API Server
+│   ├── backend/
 │   │   ├── app/
-│   │   │   ├── core/                 # Config, Database Engine, Security & JWT Auth
-│   │   │   ├── models/               # SQLAlchemy ORM Models (Org, User, Dataset, Report)
-│   │   │   ├── schemas/              # Pydantic v2 Type-Safe DTO Schemas
-│   │   │   ├── services/             # Pure Business Logic & Statistical Algorithms
-│   │   │   │   ├── dataset_service.py     # File I/O, tabular parsing, sample datasets
-│   │   │   │   ├── profiling_service.py   # 5-number distributions, quartiles, skewness, quality audit
-│   │   │   │   ├── cleaning_service.py    # Non-destructive cleaning engine & preview diff
-│   │   │   │   ├── analytics_service.py   # Pearson & Spearman correlations, OLS regression, group-by
-│   │   │   │   ├── forecasting_service.py # Linear, Exponential, Weighted Moving Average with CIs
-│   │   │   │   ├── anomaly_service.py     # Z-Score & IQR outlier detection
-│   │   │   │   ├── whatif_service.py      # Parameter sensitivity simulation engine
-│   │   │   │   ├── ai_copilot_service.py  # Intent detection & grounded analytical reasoning
-│   │   │   │   └── report_service.py      # Strategic executive report compiler
-│   │   │   ├── routers/              # Modular REST API Routers
-│   │   │   └── main.py               # FastAPI App & Lifespan Seeding
-│   │   ├── a3_local.db               # SQLite local storage
-│   │   ├── requirements.txt          # Python dependencies
-│   │   └── .env.example              # Environment configuration template
-│   │
-│   └── frontend/                     # Next.js 16 / React 19 / Tailwind CSS v4 App
-│       ├── src/
-│       │   ├── app/
-│       │   │   ├── layout.tsx        # Toast Provider & global typography
-│       │   │   ├── globals.css       # Design tokens & print stylesheet
-│       │   │   ├── page.tsx          # Mode selector & authentication gateway
-│       │   │   └── dashboard/        # Main Analytics Workspace Controller
-│       │   ├── components/
-│       │   │   ├── layout/           # Sidebar, Header, Toast notifications
-│       │   │   ├── ui/               # Card, Button, Badge, Skeleton, EmptyState, Modal
-│       │   │   ├── charts/           # Modular SVG Charts (Area, Line, Bar, Scatter, Donut, Radar, BoxPlot, Heatmap)
-│       │   │   └── views/            # 11 Dedicated Workspace Views
-│       │   └── lib/
-│       │       ├── api.ts            # Type-safe API Client
-│       │       ├── types.ts          # TypeScript interfaces
-│       │       ├── chartRecommendations.ts # Smart heuristic chart recommender
-│       │       └── exportUtils.ts    # CSV, JSON, Markdown, PNG/SVG export helpers
-│       ├── package.json
-│       └── next.config.ts
+│   │   │   ├── core/          # config, auth, database, storage, security
+│   │   │   ├── models/        # SQLAlchemy models
+│   │   │   ├── schemas/       # Pydantic DTOs
+│   │   │   ├── services/      # analytics and business logic
+│   │   │   ├── routers/       # REST API modules
+│   │   │   └── main.py
+│   │   ├── requirements.txt
+│   │   └── .env.example
+│   └── frontend/
+│       ├── src/app/           # Next.js routes
+│       ├── src/components/    # UI, charts and workspace views
+│       └── src/lib/           # API client, types and exports
+├── .github/workflows/ci.yml   # backend + frontend CI
 └── README.md
 ```
 
----
+## 🚀 Feature Workspaces
 
-## 🚀 Key Feature Workspaces
+| Workspace | Capability |
+|---|---|
+| Executive Dashboard | KPI cards, data-quality health, primary metrics and summaries |
+| Datasets & Grid | Upload, manage, preview and export datasets |
+| Data Profile | Five-number summary, dispersion, skewness, missingness and quality audit |
+| Cleaning Studio | Preview-first, non-destructive cleaning operations |
+| Analytics Studio | Pearson/Spearman correlation, OLS regression and group-by analysis |
+| Graph Studio | Line, area, bar, scatter, donut, radar, box plot and heatmap visualizations |
+| Forecasting | Trend, exponential-growth and weighted-moving-average forecasting |
+| Anomaly Detection | Z-score/IQR detection with severity and row context |
+| What-If Analysis | Driver sensitivity and scenario simulation |
+| AI Copilot | Grounded analytical reasoning with FACT / OBSERVATION / RECOMMENDATION output |
+| Executive Reports | Strategic reports with export-friendly formatting |
 
-| Workspace | Description |
-| :--- | :--- |
-| **1. Executive Dashboard** | Real-time KPI scorecards, data quality health index, primary metric progression, category donut charts, and 1-click sample loaders. |
-| **2. Datasets & Grid** | Complete dataset management: upload, duplicate, rename, delete, raw vs cleaned downloads, and 50-row paginated data grid. |
-| **3. Data Profile** | 5-number distributions (Min, Q1, Median, Q3, Max), IQR, Mean, Variance, StdDev, Skewness, Mode, and 4-tier data quality audit. |
-| **4. Cleaning Studio** | **Non-destructive** data cleaning with live preview diffs before applying: duplicate removal, numeric/categorical imputation, outlier clipping/dropping, string trimming, and case normalization. |
-| **5. Analytics Studio** | Pearson & Spearman correlation heatmap matrix, bivariate OLS linear regression solver with R² equation, and categorical group-by segment aggregations. |
-| **6. Graph Studio** | Interactive SVG charting suite (Line, Area, Bar, Horizontal Bar, Scatter with Regression, Donut, Radar, Box Plot) with AI heuristic chart recommendations and 1-click high-res PNG export. |
-| **7. Forecasting** | Time-series predictive modeling (Linear Trend, Exponential Growth, Weighted Moving Average) across 7d, 30d, 90d, 180d, and 365d horizons with 80%, 95%, and 99% confidence interval bands. |
-| **8. Anomaly Detection** | Statistical outlier detection using Z-Score (&gt; σ) and IQR fences with severity classifications (Mild, High, Critical) and row context inspection. |
-| **9. What-If Analysis** | Parameter sensitivity playground allowing users to adjust driver variable multipliers and project estimated delta outcomes with simulation disclaimers. |
-| **10. AI Copilot** | Local, privacy-safe natural-language reasoning grounded directly in dataset statistical profiles without sending raw data to external services. Separates findings into **FACT**, **OBSERVATION**, and **RECOMMENDATION**. |
-| **11. Executive Reports** | Automated strategic briefings with publication-grade layout, print-ready PDF styling, and 1-click Markdown/JSON exports. |
+## 🛠️ Local Setup
 
----
+### Prerequisites
 
-## 🛠️ Local Installation & Setup
+- Python 3.10+
+- Node.js 18+
+- npm
+- Optional: Ollama for local AI Copilot
 
-### 1. Prerequisites
-- **Python 3.10+**
-- **Node.js 18+ & npm**
+### Backend
 
-### 2. Backend Setup
 ```bash
 cd a3/backend
-
-# Create virtual environment (optional but recommended)
 python -m venv venv
-# On Windows:
+
+# Windows
 venv\Scripts\activate
-# On Linux/macOS:
+
+# macOS/Linux
 source venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
+```
 
-# Run the API server
+Copy `.env.example` to `.env.local`, then start the API:
+
+```bash
 uvicorn app.main:app --reload --port 8000
 ```
-* Backend API Documentation: `http://localhost:8000/docs`
-* Health Check: `http://localhost:8000/api/v1/health`
 
-### 3. Frontend Setup
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/api/v1/health`
+
+### Frontend
+
 ```bash
 cd a3/frontend
-
-# Install dependencies
 npm install
-
-# Run development server
 npm run dev
 ```
-* Open in browser: `http://localhost:3000`
 
-### 4. Default Login Credentials
-* **Mode**: Local Mode
-* **Username**: `admin`
-* **Password**: `admin123`
+Open `http://localhost:3000`.
 
----
+### Local demo login
 
-## 🔒 Security & Privacy Architecture
-- **Zero Raw Data Leakage**: AI Copilot analyzes computed metadata and statistical aggregations locally; raw individual user records are never forwarded to third parties.
-- **Non-Destructive Storage**: Original raw uploads are backed up under `raw_storage_path`. Cleaned datasets are written as versioned derivatives.
-- **JWT Authentication & Bcrypt**: Passwords hashed with salted bcrypt; endpoints authenticated via standard Bearer tokens.
-- **Upload Validation**: Strict file type sniffing (CSV, JSON, TSV) with a 25MB file size ceiling and path sanitization.
+Local mode creates a demo account on an empty database:
 
----
+- Username: `admin`
+- Password: `admin123`
+
+**Do not expose the local demo configuration to the public internet. Change the password before using A3 outside a private development environment.**
+
+## 🔐 Security Notes
+
+- Cloud mode requires an explicit `JWT_SECRET` with at least 32 characters.
+- Local mode generates an ephemeral JWT secret when one is not supplied.
+- CORS is environment-driven and does not use wildcard origins with credentials.
+- Passwords are hashed with bcrypt.
+- Dataset uploads should remain behind authenticated endpoints.
+- Local storage paths should be treated as private application data.
+- Production database schema changes should use Alembic migrations rather than relying on startup table creation.
+
+## 🧪 CI
+
+GitHub Actions runs backend Python compilation checks and frontend install, lint and build checks on pushes and pull requests to `main`.
+
+## 🗺️ Roadmap
+
+### Near term
+- [ ] Replace large in-memory dataset processing with streaming ingestion
+- [ ] Split dataset ingestion/storage logic from API routers
+- [ ] Add unit and integration tests for statistical algorithms
+- [ ] Add Alembic migration workflow
+- [ ] Add background jobs for long-running analytics
+
+### Scale
+- [ ] DuckDB + Parquet analytical engine
+- [ ] PostgreSQL production mode
+- [ ] Object storage integration
+- [ ] Redis-backed job queue and caching
+- [ ] Multi-tenant RBAC and audit logs
+
+### AI
+- [ ] Tool-based Copilot analytics execution
+- [ ] Evidence-backed insights
+- [ ] Automatic dataset diagnosis
+- [ ] Natural-language chart generation
+- [ ] Scheduled AI executive reports
 
 ## 📄 License
-MIT License. Built for enterprise analytics demonstration and research evaluations.
+
+MIT License. Built for analytics engineering, Data Science learning, demonstrations and research.
