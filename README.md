@@ -10,7 +10,7 @@ A3 is a local-first analytics platform built with **FastAPI, SQLAlchemy, Next.js
 - **Privacy-focused:** Copilot can reason from computed dataset metadata instead of raw records
 - **Modular:** FastAPI routers, repositories, services, schemas and typed frontend API client
 - **Analytics-focused:** profiling, correlation, regression, forecasting and anomaly detection
-- **Production path:** PostgreSQL, Alembic migrations, secure configuration, container health checks and CI
+- **Production path:** PostgreSQL, Alembic migrations, secure configuration, audit logging, health checks and CI
 
 ## 🏗️ Architecture
 
@@ -86,6 +86,7 @@ A local database is initialized automatically for development. The first local a
 - API docs: `http://localhost:8000/docs`
 - Liveness: `http://localhost:8000/api/v1/health`
 - Readiness: `http://localhost:8000/api/v1/ready`
+- Admin audit log: `http://localhost:8000/api/v1/audit`
 
 ### Frontend
 
@@ -114,10 +115,11 @@ Set `MODE=cloud`, a PostgreSQL `CLOUD_DATABASE_URL`, a strong `JWT_SECRET`, and 
 - Local mode generates an ephemeral JWT secret when one is not supplied.
 - No hardcoded production admin password is shipped.
 - CORS is environment-driven and does not use wildcard origins with credentials.
-- Passwords are hashed with bcrypt.
+- Passwords are hashed with bcrypt and authentication inputs are validated.
 - Uploads are size- and extension-validated.
 - Storage paths are resolved and rejected if they escape the configured storage root.
 - Dataset access is scoped by organization.
+- Security-sensitive authentication and dataset lifecycle actions are audit logged.
 - Production database schema changes are versioned with Alembic.
 - The backend container runs as a non-root user and exposes a health check.
 
@@ -133,6 +135,7 @@ GitHub Actions validates the backend with Python compilation, pytest, clean-data
 - [x] Automated tests and CI
 - [x] Alembic migrations
 - [x] Health/readiness endpoints
+- [x] Authentication and dataset audit logging
 - [ ] Integration and end-to-end browser tests
 
 ### Scale
@@ -145,7 +148,7 @@ GitHub Actions validates the backend with Python compilation, pytest, clean-data
 
 ### Enterprise
 - [ ] Fine-grained RBAC
-- [ ] Audit log pipeline
+- [x] Audit log pipeline
 - [ ] API keys and service accounts
 - [ ] Usage quotas and billing hooks
 - [ ] Team/workspace management
