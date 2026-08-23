@@ -11,6 +11,10 @@ export type ViewType =
   | "copilot"
   | "reports";
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonObject = { [key: string]: JsonValue };
+
 export interface UserInfo {
   id: string;
   email: string;
@@ -41,7 +45,7 @@ export interface ColumnSchema {
   nullable: boolean;
   unique_count: number;
   null_count: number;
-  sample_values?: any[];
+  sample_values?: JsonValue[];
 }
 
 export interface HistogramBin {
@@ -55,7 +59,7 @@ export interface HistogramBin {
 export interface ColumnSummary {
   mean?: number | null;
   median?: number | null;
-  mode?: any;
+  mode?: JsonValue;
   min?: number | null;
   max?: number | null;
   std_dev?: number | null;
@@ -128,7 +132,7 @@ export interface AnomalyItem {
   expected_mean: number;
   method: string;
   severity: "mild" | "high" | "critical";
-  context: Record<string, any>;
+  context: JsonObject;
 }
 
 export interface AnomaliesData {
@@ -196,6 +200,21 @@ export interface HypothesisTestData {
   conclusion: string;
 }
 
+export interface CleaningRequest {
+  drop_duplicates?: boolean;
+  impute_numeric?: "mean" | "median" | "zero" | "drop" | "none";
+  impute_categorical?: "mode" | "placeholder" | "drop" | "none";
+  custom_null_placeholder?: string;
+  outlier_handling?: "none" | "clip" | "drop";
+  trim_whitespace?: boolean;
+  case_normalization?: "none" | "lower" | "upper" | "title";
+  normalize_dates?: boolean;
+  rename_columns?: Array<{ old_name: string; new_name: string }>;
+  drop_columns?: string[];
+  create_new_version?: boolean;
+  standardize_text?: boolean;
+}
+
 export interface CleanPreviewData {
   original_row_count: number;
   cleaned_row_count: number;
@@ -203,8 +222,8 @@ export interface CleanPreviewData {
   imputed_nulls: number;
   handled_outliers: number;
   preview_columns: string[];
-  preview_original_rows: Record<string, any>[];
-  preview_cleaned_rows: Record<string, any>[];
+  preview_original_rows: JsonObject[];
+  preview_cleaned_rows: JsonObject[];
   changes_summary: string[];
 }
 
@@ -214,6 +233,11 @@ export interface WhatIfVariableImpact {
   simulated_avg: number;
   delta_pct: number;
   contribution_to_target: number;
+}
+
+export interface WhatIfRequest extends JsonObject {
+  target_metric?: string;
+  scenario_name?: string;
 }
 
 export interface WhatIfData {
@@ -238,6 +262,16 @@ export interface AIInsight {
   metric_reference?: string;
 }
 
+export interface AIChatResponse {
+  reply: string;
+  intent?: string;
+  insights?: AIInsight[];
+  suggested_action?: string | null;
+  suggested_view?: string | null;
+  plot_data?: JsonValue;
+  execution_time_ms: number;
+}
+
 export interface AIChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -246,7 +280,7 @@ export interface AIChatMessage {
   insights?: AIInsight[];
   suggested_action?: string | null;
   suggested_view?: string | null;
-  plot_data?: any;
+  plot_data?: JsonValue;
   timestamp?: string;
 }
 
@@ -254,7 +288,7 @@ export interface ReportSection {
   heading: string;
   content: string;
   highlights: string[];
-  table_data?: any[];
+  table_data?: JsonObject[];
 }
 
 export interface ReportData {
@@ -269,5 +303,5 @@ export interface ReportData {
   executive_summary: string;
   sections: ReportSection[];
   markdown_content: string;
-  json_structure: Record<string, any>;
+  json_structure: JsonObject;
 }
