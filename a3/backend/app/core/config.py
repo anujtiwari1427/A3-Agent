@@ -1,6 +1,7 @@
+import secrets
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,8 +21,8 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
 
-    # Never use a known fallback secret. Local development may explicitly opt in.
-    JWT_SECRET: str = Field(default="", min_length=32)
+    # Local mode gets an ephemeral secret; cloud mode must provide one explicitly.
+    JWT_SECRET: Optional[str] = Field(default=None)
     JWT_EXPIRE_MINUTES: int = Field(default=60, ge=5, le=1440)
 
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
@@ -32,14 +33,18 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("JWT_SECRET")
-    @classmethod
-    def validate_jwt_secret(cls, value: str) -> str:
-        if not value or len(value) < 32:
-            raise ValueError(
-                "JWT_SECRET must be set to a random secret of at least 32 characters."
-            )
-        return value
+    @model_validator(mode="after")
+    def validate_security(self):
+        if self.MODE == "cloud":
+            if not self.JWT_SECRET or len(self.JWT_SECRET) < 32:
+                raise ValueError(
+                    "JWT_SECRET must be explicitly configured with at least 32 characters in cloud mode."
+                )
+        elif not self.JWT_SECRET:
+            self.JWT_SECRET = secrets.token_urlsafe(48)
+        elif len(self.JWT_SECRET) < 32:
+            raise ValueError("JWT_SECRET must contain at least 32 characters.")
+        return self
 
 
 settings = Settings()
