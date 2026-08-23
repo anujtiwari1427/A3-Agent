@@ -12,7 +12,6 @@ class Org(Base):
     slug = Column(String(50), unique=True, nullable=False)
     plan = Column(String(20), default="free")
     created_at = Column(DateTime, default=func.now())
-
     users = relationship("User", back_populates="org", cascade="all, delete-orphan")
     datasets = relationship("Dataset", back_populates="org", cascade="all, delete-orphan")
 
@@ -27,7 +26,6 @@ class User(Base):
     role = Column(String(20), default="analyst")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
-
     org = relationship("Org", back_populates="users")
     sessions = relationship("Session", back_populates="user")
     datasets = relationship("Dataset", back_populates="uploader")
@@ -52,11 +50,9 @@ class Dataset(Base):
     cleaning_log = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-
     org = relationship("Org", back_populates="datasets")
     uploader = relationship("User", back_populates="datasets")
     reports = relationship("Report", back_populates="dataset", cascade="all, delete-orphan")
-
     __table_args__ = (
         Index("ix_datasets_org_created", "org_id", "created_at"),
         Index("ix_datasets_org_name", "org_id", "name"),
@@ -74,7 +70,6 @@ class Report(Base):
     content_markdown = Column(Text, nullable=False)
     content_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
-
     dataset = relationship("Dataset", back_populates="reports")
 
 
@@ -88,7 +83,6 @@ class Session(Base):
     mode = Column(String(10))
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-
     user = relationship("User", back_populates="sessions")
     messages = relationship("SessionMessage", back_populates="session", cascade="all, delete-orphan")
 
@@ -103,7 +97,6 @@ class SessionMessage(Base):
     content_type = Column(String(20))
     elapsed_ms = Column(Integer)
     created_at = Column(DateTime, default=func.now())
-
     session = relationship("Session", back_populates="messages")
 
 
@@ -128,3 +121,19 @@ class UsageEvent(Base):
     tokens_used = Column(Integer, default=0)
     compute_ms = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    org_id = Column(String, ForeignKey("orgs.id", ondelete="CASCADE"), nullable=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    action = Column(String(80), nullable=False)
+    resource_type = Column(String(50), nullable=False)
+    resource_id = Column(String(100), nullable=True)
+    metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    __table_args__ = (
+        Index("ix_audit_org_created", "org_id", "created_at"),
+        Index("ix_audit_user_created", "user_id", "created_at"),
+    )
