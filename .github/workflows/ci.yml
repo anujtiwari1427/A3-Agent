@@ -13,6 +13,7 @@ concurrency:
   group: a3-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Single consolidated CI pipeline for the monorepo.
 jobs:
   backend:
     name: Backend
