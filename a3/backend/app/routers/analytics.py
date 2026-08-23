@@ -1,6 +1,4 @@
-"""
-Analytics Router — correlation matrices, regression equations, group-by, and hypothesis testing.
-"""
+"""Analytics Router — correlation matrices, regression equations, group-by, and hypothesis testing with privacy enforcement."""
 
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +8,8 @@ from ..core.auth import get_current_user
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.storage import StorageClient
-from ..models.domain import Dataset, User
+from ..models.domain import User
+from ..repositories.dataset_repository import DatasetRepository
 from ..schemas.analytics import (
     CorrelationResponse,
     RegressionResponse,
@@ -36,7 +35,7 @@ async def get_dataset_correlations(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -53,7 +52,7 @@ async def get_dataset_regression(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -70,7 +69,7 @@ async def get_dataset_groupby(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -86,7 +85,7 @@ async def get_dataset_hypothesis_test(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

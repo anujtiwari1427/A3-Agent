@@ -169,51 +169,39 @@ function ModeCard({
 }
 
 /* ──────────────────────────────────────────────────────
-   Auth Form: Security License (Local) / Email (Cloud)
+   Auth Form: Multi-User Isolated Personal & Cloud Workspaces
    ────────────────────────────────────────────────────── */
 function LoginForm({ mode }: { mode: "local" | "cloud" }) {
   const router = useRouter();
   const isCloud = mode === "cloud";
   const accentColor = isCloud ? "var(--accent-blue)" : "var(--accent-emerald)";
 
-  // Local Mode: Security License Key (default: 7710916655)
-  const [licenseKey, setLicenseKey] = useState("7710916655");
-
-  // Cloud Mode Form State
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [licenseKey, setLicenseKey] = useState("7710916655");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleLocalLicenseSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      const data = await api.loginWithLicense(licenseKey);
-      localStorage.setItem("a3_token", data.access_token);
-      localStorage.setItem("a3_user", JSON.stringify(data.user));
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Invalid Security License Key";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  }
+      // Clear any prior user state in localStorage before creating a new session
+      localStorage.removeItem("a3_token");
+      localStorage.removeItem("a3_user");
 
-  async function handleCloudSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
       const data = isRegister
-        ? await api.register(email, password, fullName || undefined)
+        ? await api.register(
+            email,
+            password,
+            fullName || undefined,
+            !isCloud ? licenseKey : undefined
+          )
         : await api.login(email, password);
 
       localStorage.setItem("a3_token", data.access_token);
@@ -242,21 +230,17 @@ function LoginForm({ mode }: { mode: "local" | "cloud" }) {
               border: `1px solid ${accentColor}33`,
             }}
           >
-            {isCloud ? "☁ Cloud Mode" : "🔒 Local Protected Mode"}
+            {isCloud ? "☁ Cloud Team Mode" : "🔒 Local Personal Workspace"}
           </span>
         </div>
 
         <h2 className="text-2xl font-semibold text-center mb-2">
-          {isCloud
-            ? isRegister
-              ? "Create Cloud Account"
-              : "Sign in to a3"
-            : "Security License Authorization"}
+          {isRegister ? "Create Private Account" : "Sign in to a3"}
         </h2>
         <p className="text-xs text-center text-[var(--text-muted)] mb-6">
           {isCloud
-            ? "Enter your team credentials to access the shared cloud workspace"
-            : "Enter your authorized security license key to unlock your local platform"}
+            ? "Access your team's collaborative data intelligence workspace"
+            : "Every local user gets a private, completely isolated workspace"}
         </p>
 
         {/* Error message */}
@@ -273,9 +257,64 @@ function LoginForm({ mode }: { mode: "local" | "cloud" }) {
           </div>
         )}
 
-        {/* Local Mode: Security License Key Authorization */}
-        {!isCloud ? (
-          <form onSubmit={handleLocalLicenseSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isRegister && (
+            <div>
+              <label
+                htmlFor="fullName"
+                className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2"
+              >
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Jane Doe"
+                className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-accent)] transition-colors duration-300 text-sm"
+              />
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2"
+            >
+              Email Address
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+              required
+              className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-accent)] transition-colors duration-300 text-sm"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-accent)] transition-colors duration-300 text-sm"
+            />
+          </div>
+
+          {/* Local mode license activation during registration */}
+          {!isCloud && isRegister && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label
@@ -288,129 +327,45 @@ function LoginForm({ mode }: { mode: "local" | "cloud" }) {
                   Default: 7710916655
                 </span>
               </div>
-              <div className="relative">
-                <input
-                  id="licenseKey"
-                  type="text"
-                  value={licenseKey}
-                  onChange={(e) => setLicenseKey(e.target.value)}
-                  placeholder="7710916655"
-                  required
-                  className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-emerald)] transition-colors duration-300 font-mono tracking-wider text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setLicenseKey("7710916655")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded bg-[var(--accent-emerald-dim)] text-[var(--accent-emerald)] hover:brightness-125 transition-all"
-                  title="Reset to default license"
-                >
-                  Auto-fill
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-[var(--radius-sm)] text-sm font-semibold text-[var(--bg-primary)] transition-all duration-300 hover:brightness-110 active:scale-[0.98] mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              style={{ backgroundColor: accentColor }}
-            >
-              {loading ? "Verifying License…" : "◈ Unlock Platform"}
-            </button>
-
-            <div className="pt-3 text-center">
-              <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                Licensed for local standalone intelligence on this machine.
-                All calculations and storage run 100% offline.
-              </p>
-            </div>
-          </form>
-        ) : (
-          /* Cloud Mode: Email & Password */
-          <form onSubmit={handleCloudSubmit} className="space-y-4">
-            {isRegister && (
-              <div>
-                <label
-                  htmlFor="fullName"
-                  className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2"
-                >
-                  Full Name
-                </label>
-                <input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Jane Doe"
-                  className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-accent)] transition-colors duration-300 text-sm"
-                />
-              </div>
-            )}
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2"
-              >
-                Email
-              </label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                required
-                className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-accent)] transition-colors duration-300 text-sm"
+                id="licenseKey"
+                type="text"
+                value={licenseKey}
+                onChange={(e) => setLicenseKey(e.target.value)}
+                placeholder="7710916655"
+                className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-emerald)] transition-colors duration-300 font-mono text-sm"
               />
             </div>
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-accent)] transition-colors duration-300 text-sm"
-              />
-            </div>
+          )}
 
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-[var(--radius-sm)] text-sm font-semibold text-[var(--bg-primary)] transition-all duration-300 hover:brightness-110 active:scale-[0.98] mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ backgroundColor: accentColor }}
+          >
+            {loading
+              ? "Please wait…"
+              : isRegister
+                ? "Create Workspace & Account"
+                : "Sign In"}
+          </button>
+
+          <p className="text-center text-xs text-[var(--text-muted)] mt-5">
+            {isRegister ? "Already have an account?" : "Need a private workspace?"}{" "}
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-[var(--radius-sm)] text-sm font-semibold text-[var(--bg-primary)] transition-all duration-300 hover:brightness-110 active:scale-[0.98] mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ backgroundColor: accentColor }}
+              type="button"
+              onClick={() => {
+                setIsRegister(!isRegister);
+                setError(null);
+              }}
+              className="underline transition-colors duration-300 cursor-pointer font-medium"
+              style={{ color: accentColor }}
             >
-              {loading
-                ? "Please wait…"
-                : isRegister
-                  ? "Create Account"
-                  : "Sign In"}
+              {isRegister ? "Sign in" : "Create one"}
             </button>
-
-            <p className="text-center text-xs text-[var(--text-muted)] mt-5">
-              {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRegister(!isRegister);
-                  setError(null);
-                }}
-                className="underline transition-colors duration-300 cursor-pointer"
-                style={{ color: accentColor }}
-              >
-                {isRegister ? "Sign in" : "Create one"}
-              </button>
-            </p>
-          </form>
-        )}
+          </p>
+        </form>
       </div>
     </div>
   );
@@ -438,14 +393,14 @@ export default function Home() {
       >
         <ModeCard
           mode="local"
-          title="Local Protected Mode"
+          title="Local Personal Mode"
           icon="🔒"
-          description="Security license key authorized. Runs entirely on your machine."
+          description="Runs on your machine with strict personal workspace isolation."
           features={[
-            "Security License: 7710916655",
-            "Zero email/password hassle",
-            "Offline-first local computation",
-            "Direct local PC storage",
+            "Private personal workspace per user",
+            "Owner-enforced data privacy",
+            "100% offline-first local computation",
+            "Direct partitioned local PC storage",
           ]}
           accentColor="var(--accent-emerald)"
           glowShadow="var(--shadow-glow-emerald)"
@@ -480,7 +435,7 @@ export default function Home() {
         </p>
       )}
 
-      {/* Login form */}
+      {/* Login / Register form */}
       {selectedMode && <LoginForm mode={selectedMode} />}
 
       {/* Footer */}
@@ -490,7 +445,7 @@ export default function Home() {
       >
         <p>
           One product. Two deployment realities.{" "}
-          <span className="text-[var(--accent-purple)]">a3 v2.4</span>
+          <span className="text-[var(--accent-purple)]">a3 v2.5</span>
         </p>
       </footer>
     </main>

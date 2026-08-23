@@ -87,9 +87,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export const api = {
-  async loginWithLicense(licenseKey: string, signal?: AbortSignal): Promise<AuthResponse> {
-    return request<AuthResponse>(
-      "/api/v1/auth/license-login",
+  async verifyLicense(licenseKey: string, signal?: AbortSignal): Promise<{ valid: boolean; message: string }> {
+    return request<{ valid: boolean; message: string }>(
+      "/api/v1/auth/verify-license",
       {
         method: "POST",
         body: JSON.stringify({ license_key: licenseKey }),
@@ -113,13 +113,14 @@ export const api = {
     email: string,
     password: string,
     fullName?: string,
+    licenseKey?: string,
     signal?: AbortSignal
   ): Promise<AuthResponse> {
     return request<AuthResponse>(
       "/api/v1/auth/register",
       {
         method: "POST",
-        body: JSON.stringify({ email, password, full_name: fullName }),
+        body: JSON.stringify({ email, password, full_name: fullName, license_key: licenseKey }),
       },
       signal
     );

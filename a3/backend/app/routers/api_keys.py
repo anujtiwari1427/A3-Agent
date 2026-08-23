@@ -1,4 +1,4 @@
-"""API Key Management HTTP Endpoints."""
+"""API Key Management HTTP Endpoints with user and workspace privacy scoping."""
 
 from datetime import datetime, timedelta, timezone
 from typing import List
@@ -66,9 +66,8 @@ def list_api_keys(
     current_user: User = Depends(require_role("admin")),
     db: DBSession = Depends(get_db),
 ):
-    org_id = _require_org(current_user)
     repo = ApiKeyRepository(db)
-    keys = repo.list_for_org(org_id)
+    keys = repo.list_for_user(current_user)
     return [
         ApiKeyResponse(
             id=k.id,
@@ -90,13 +89,12 @@ def revoke_api_key(
     current_user: User = Depends(require_role("admin")),
     db: DBSession = Depends(get_db),
 ):
-    org_id = _require_org(current_user)
     repo = ApiKeyRepository(db)
-    revoked = repo.revoke(key_id, org_id)
+    revoked = repo.revoke_for_user(key_id, current_user)
     if not revoked:
         raise HTTPException(status_code=404, detail="API key not found")
     AuditRepository(db).record(
-        org_id=org_id,
+        org_id=current_user.org_id,
         user_id=current_user.id,
         action="api_key.revoked",
         resource_type="api_key",

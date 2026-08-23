@@ -46,18 +46,21 @@ def _seed_local_admin() -> None:
     try:
         if db.query(User).count() > 0:
             return
-        org = db.query(Org).filter(Org.slug == "local").first()
-        if not org:
-            org = Org(id=str(uuid.uuid4()), name="Local Workspace", slug="local", plan="enterprise_local")
-            db.add(org)
-            db.flush()
+        org = Org(
+            id=str(uuid.uuid4()),
+            name="Admin Personal Workspace",
+            slug=f"ws-{uuid.uuid4().hex[:8]}",
+            plan="personal",
+        )
+        db.add(org)
+        db.flush()
         password = settings.LOCAL_ADMIN_PASSWORD or secrets.token_urlsafe(16)
         db.add(User(
             id=str(uuid.uuid4()),
             email=settings.LOCAL_ADMIN_EMAIL,
             hashed_password=hash_password(password),
             full_name="Local Administrator",
-            role="admin",
+            role="owner",
             org_id=org.id,
             is_active=True,
         ))

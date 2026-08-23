@@ -29,6 +29,9 @@ class User(Base):
     org = relationship("Org", back_populates="users")
     sessions = relationship("Session", back_populates="user")
     datasets = relationship("Dataset", back_populates="uploader")
+    __table_args__ = (
+        Index("ix_users_org_id", "org_id"),
+    )
 
 
 class Dataset(Base):
@@ -46,6 +49,7 @@ class Dataset(Base):
     size_bytes = Column(BigInteger, default=0)
     health_score = Column(Integer, default=100)
     is_cleaned = Column(Boolean, default=False)
+    visibility = Column(String(20), default="private", nullable=False)  # "private" | "organization"
     parent_dataset_id = Column(String, nullable=True)
     cleaning_log = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
@@ -56,6 +60,8 @@ class Dataset(Base):
     __table_args__ = (
         Index("ix_datasets_org_created", "org_id", "created_at"),
         Index("ix_datasets_org_name", "org_id", "name"),
+        Index("ix_datasets_org_uploader", "org_id", "uploaded_by"),
+        Index("ix_datasets_uploaded_by", "uploaded_by"),
     )
 
 
@@ -71,6 +77,10 @@ class Report(Base):
     content_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     dataset = relationship("Dataset", back_populates="reports")
+    __table_args__ = (
+        Index("ix_reports_created_by", "created_by"),
+        Index("ix_reports_org_created_by", "org_id", "created_by"),
+    )
 
 
 class Session(Base):

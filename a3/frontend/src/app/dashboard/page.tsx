@@ -110,10 +110,14 @@ export default function DashboardPage() {
     };
   }, [selectedDatasetId]);
 
-  // Handle Logout
+  // Handle Logout with complete privacy and cache clearing
   function handleLogout() {
-    localStorage.removeItem("a3_token");
-    localStorage.removeItem("a3_user");
+    localStorage.clear();
+    sessionStorage.clear();
+    setUser(null);
+    setDatasets([]);
+    setSelectedDatasetId("");
+    setAnalytics(null);
     router.push("/");
   }
 

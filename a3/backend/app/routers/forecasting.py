@@ -1,6 +1,4 @@
-"""
-Forecasting Router — time-series predictive modeling endpoints.
-"""
+"""Forecasting Router — time-series predictive modeling with privacy enforcement."""
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +8,8 @@ from ..core.auth import get_current_user
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.storage import StorageClient
-from ..models.domain import Dataset, User
+from ..models.domain import User
+from ..repositories.dataset_repository import DatasetRepository
 from ..schemas.forecasting import ForecastResponse
 from ..services.dataset_service import parse_bytes_to_rows
 from ..services.forecasting_service import run_time_series_forecast
@@ -30,7 +29,7 @@ async def get_dataset_forecast(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

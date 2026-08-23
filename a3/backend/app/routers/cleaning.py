@@ -1,6 +1,4 @@
-"""
-Cleaning Router — preview diff and non-destructive data cleaning.
-"""
+"""Cleaning Router — preview diff and non-destructive data cleaning with privacy enforcement."""
 
 import json
 import uuid
@@ -12,7 +10,8 @@ from ..core.auth import get_current_user
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.storage import StorageClient
-from ..models.domain import Dataset, User
+from ..models.domain import User
+from ..repositories.dataset_repository import DatasetRepository
 from ..schemas.dataset import DatasetResponse
 from ..schemas.cleaning import CleanRequest, CleanPreviewResponse
 from ..services.dataset_service import parse_bytes_to_rows, create_dataset_from_bytes
@@ -29,7 +28,7 @@ async def preview_clean_dataset(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -48,7 +47,7 @@ async def clean_dataset(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -60,7 +59,7 @@ async def clean_dataset(
     cleaned_bytes = rows_to_csv_bytes(clean_headers, clean_rows)
 
     if request_params.create_new_version:
-        # Create separate child dataset
+        # Create separate child dataset owned by current_user
         cleaned_dataset = await create_dataset_from_bytes(
             content=cleaned_bytes,
             filename=f"Cleaned_{dataset.name}",
@@ -70,6 +69,7 @@ async def clean_dataset(
             description=f"Cleaned derivative of {dataset.name}",
             is_cleaned=True,
             parent_id=dataset.id,
+            visibility=getattr(dataset, "visibility", "private"),
         )
         cleaned_dataset.cleaning_log = json.dumps([l.model_dump() for l in logs])
         db.commit()
@@ -80,9 +80,9 @@ async def clean_dataset(
     if not dataset.raw_storage_path:
         dataset.raw_storage_path = dataset.storage_path
 
-    # Save cleaned derivative to a new storage path
-    cleaned_filename = f"cleaned_{uuid.uuid4()}_{dataset.name}"
-    new_storage_path = await storage_client.upload(cleaned_bytes, cleaned_filename)
+    # Save cleaned derivative to a partitioned storage path
+    cleaned_key = f"{current_user.org_id}/{current_user.id}/datasets/{dataset.id}/cleaned_{dataset.name}"
+    new_storage_path = await storage_client.upload(cleaned_bytes, cleaned_key)
 
     dataset.storage_path = new_storage_path
     dataset.row_count = len(clean_rows)

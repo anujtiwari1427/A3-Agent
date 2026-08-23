@@ -1,15 +1,44 @@
-"""Database access for Job entities."""
+"""Database access and privacy-enforced queries for Job entities."""
 
 import json
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 from sqlalchemy.orm import Session
 
-from ..models.domain import Job
+from ..core.authorization import can_access_job
+from ..core.config import settings
+from ..models.domain import Job, User
 
 
 class JobRepository:
     def __init__(self, db: Session):
         self.db = db
+
+    def get_for_user(self, job_id: str, current_user: User) -> Optional[Job]:
+        """Fetch job only if authorized for current_user."""
+        job = (
+            self.db.query(Job)
+            .filter(Job.id == job_id, Job.org_id == current_user.org_id)
+            .first()
+        )
+        if not job:
+            return None
+        if not can_access_job(job, current_user):
+            return None
+        return job
+
+    def list_for_user(
+        self, current_user: User, offset: int = 0, limit: int = 50
+    ) -> List[Job]:
+        """List background jobs belonging to current_user."""
+        q = self.db.query(Job).filter(Job.org_id == current_user.org_id)
+        if settings.MODE == "local":
+            q = q.filter(Job.user_id == current_user.id)
+        return (
+            q.order_by(Job.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
     def get_for_org(self, job_id: str, org_id: str) -> Optional[Job]:
         return (
@@ -60,7 +89,7 @@ class JobRepository:
         self.db.refresh(job)
         return job
 
-    def list_for_org(self, org_id: str, offset: int = 0, limit: int = 50) -> list[Job]:
+    def list_for_org(self, org_id: str, offset: int = 0, limit: int = 50) -> List[Job]:
         return (
             self.db.query(Job)
             .filter(Job.org_id == org_id)

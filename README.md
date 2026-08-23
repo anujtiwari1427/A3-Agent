@@ -4,13 +4,34 @@
 
 A3 is a local-first analytics platform built with **FastAPI, SQLAlchemy, Next.js, React and Tailwind CSS**. It combines dataset management, automated profiling, non-destructive cleaning, statistical analytics, forecasting, anomaly detection, What-If simulation, grounded AI reasoning and executive reporting.
 
-## ✨ Why A3
+---
 
-- **Local-first:** SQLite + local analytics + optional Ollama
-- **Privacy-focused:** Copilot can reason from computed dataset metadata instead of raw records
-- **Modular:** FastAPI routers, repositories, services, schemas and typed frontend API client
-- **Analytics-focused:** profiling, correlation, regression, forecasting and anomaly detection
-- **Production path:** PostgreSQL, Alembic migrations, secure configuration, audit logging, health checks and CI
+## 🛡️ How A3-Agent Protects Your Data
+
+A3-Agent is architected with strict, privacy-by-default multi-user isolation across all analytical, storage, and AI layers.
+
+### Multi-User Privacy Architecture
+
+1. **Private Personal Workspaces**:
+   - Every local and cloud user is registered with an independent, dedicated personal workspace (unique `org_id` and unique workspace slug).
+   - No shared global workspaces: User A and User B operate in completely distinct boundaries.
+2. **Owner-Scoped Dataset Access**:
+   - In Local Mode, datasets are strictly restricted to `dataset.org_id == current_user.org_id` AND `dataset.uploaded_by == current_user.id`.
+   - In Cloud Mode, datasets are private to the creator by default, with explicit opt-in sharing (`visibility = 'organization'`).
+3. **Server-Side Authorization & Anti-IDOR Enforcement**:
+   - All dataset, profiling, analytics, forecasting, anomaly detection, cleaning, AI Copilot, reports, background jobs, and API key endpoints verify ownership via centralized repository helpers (`DatasetRepository.get_for_user`, `ReportRepository.get_for_user`, `JobRepository.get_for_user`).
+   - If a user attempts to access another user's dataset by guessing or specifying an ID, the server returns `404 Not Found`, eliminating information leakage and ID enumeration.
+4. **Partitioned Physical Storage Isolation**:
+   - Files are stored in partitioned directories: `{org_id}/{user_id}/datasets/{dataset_id}/{filename}`.
+   - Raw storage paths are never exposed to clients; downloads require full authentication and ownership authorization.
+5. **Frontend State & Cache Isolation**:
+   - Logout clears `localStorage`, `sessionStorage`, and React component memory.
+   - Prevents any stale data or cached datasets from persisting across login sessions.
+6. **Security License Key Activation**:
+   - Configurable via `LOCAL_LICENSE_KEY`.
+   - Acts as an application activation gate rather than a shared universal identity.
+
+---
 
 ## 🏗️ Architecture
 
@@ -19,21 +40,21 @@ A3-Agent/
 ├── a3/
 │   ├── backend/
 │   │   ├── app/
-│   │   │   ├── core/          # config, auth, database, storage, security
-│   │   │   ├── models/        # SQLAlchemy models + indexes
+│   │   │   ├── core/          # config, auth, database, storage, authorization, security
+│   │   │   ├── models/        # SQLAlchemy models + isolation indexes
 │   │   │   ├── schemas/       # Pydantic DTOs
-│   │   │   ├── repositories/  # database access
-│   │   │   ├── services/      # analytics and business logic
-│   │   │   ├── routers/       # thin REST API modules
+│   │   │   ├── repositories/  # privacy-enforced data access layers
+│   │   │   ├── services/      # analytics, cleaning, forecasting, and AI Copilot
+│   │   │   ├── routers/       # authorized REST API modules
 │   │   │   └── main.py
 │   │   ├── alembic/            # versioned database migrations
-│   │   ├── tests/              # automated backend tests
+│   │   ├── tests/              # pytest suite (including privacy regression tests)
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
 │   └── frontend/
-│       ├── src/app/            # Next.js routes
+│       ├── src/app/            # Next.js routes with multi-user auth
 │       ├── src/components/     # UI, charts and workspace views
-│       └── src/lib/            # API client, types and exports
+│       └── src/lib/            # typed API client and types
 └── .github/workflows/          # CI quality gates
 ```
 
@@ -81,8 +102,6 @@ copy .env.example .env.local  # Windows
 uvicorn app.main:app --reload --port 8000
 ```
 
-A local database is initialized automatically for development. The first local admin receives a **random password in the backend startup log** unless `LOCAL_ADMIN_PASSWORD` is explicitly set in `.env.local`.
-
 - API docs: `http://localhost:8000/docs`
 - Liveness: `http://localhost:8000/api/v1/health`
 - Readiness: `http://localhost:8000/api/v1/ready`
@@ -98,68 +117,28 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-### Cloud database migrations
+### Database Migrations
 
-Production/cloud deployments should use Alembic rather than startup table creation:
+Database schema modifications are managed via Alembic:
 
 ```bash
 cd a3/backend
 alembic upgrade head
+alembic check
 ```
 
-Set `MODE=cloud`, a PostgreSQL `CLOUD_DATABASE_URL`, a strong `JWT_SECRET`, and explicit `ALLOWED_ORIGINS` before deployment.
+## 🧪 Automated Testing & Privacy CI Gates
 
-## 🔐 Security
+Run the test suite including the permanent privacy regression tests:
 
-- Cloud mode requires an explicit JWT secret of at least 32 characters.
-- Local mode generates an ephemeral JWT secret when one is not supplied.
-- No hardcoded production admin password is shipped.
-- CORS is environment-driven and does not use wildcard origins with credentials.
-- Passwords are hashed with bcrypt and authentication inputs are validated.
-- Uploads are size- and extension-validated.
-- Storage paths are resolved and rejected if they escape the configured storage root.
-- Dataset access is scoped by organization.
-- Security-sensitive authentication and dataset lifecycle actions are audit logged.
-- Production database schema changes are versioned with Alembic.
-- The backend container runs as a non-root user and exposes a health check.
+```bash
+cd a3/backend
+python -m pytest -v
+```
 
-## 🧪 Quality Gates
-
-GitHub Actions validates the backend with Python compilation, pytest, clean-database migrations and Alembic checks. Frontend CI validates dependency installation, linting and production builds.
-
-## 🗺️ Roadmap to Production Scale
-
-### Reliability
-- [x] Repository/service separation for dataset workflows
-- [x] Security-focused configuration and storage validation
-- [x] Automated tests and CI
-- [x] Alembic migrations
-- [x] Health/readiness endpoints
-- [x] Authentication and dataset audit logging
-- [ ] Integration and end-to-end browser tests
-
-### Scale
-- [ ] Streaming dataset ingestion
-- [ ] DuckDB + Parquet analytical engine
-- [ ] Managed PostgreSQL deployment
-- [ ] S3/Supabase object storage adapter
-- [ ] Redis-backed background job queue
-- [ ] Distributed caching
-
-### Enterprise
-- [ ] Fine-grained RBAC
-- [x] Audit log pipeline
-- [ ] API keys and service accounts
-- [ ] Usage quotas and billing hooks
-- [ ] Team/workspace management
-- [ ] SSO/OIDC
-
-### AI
-- [ ] Tool-based Copilot analytics execution
-- [ ] Evidence-backed insights
-- [ ] Automatic dataset diagnosis
-- [ ] Natural-language chart generation
-- [ ] Scheduled AI executive reports
+CI automatically executes:
+- Backend: Python syntax validation, pytest test suite (including `test_privacy_regression.py`), and Alembic schema checks.
+- Frontend: ESLint, TypeScript typecheck (`tsc --noEmit`), and Next.js production build (`npm run build`).
 
 ## 📄 License
 

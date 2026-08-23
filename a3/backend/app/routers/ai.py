@@ -1,15 +1,14 @@
-"""
-AI Copilot Router — conversational dataset reasoning and query endpoints.
-"""
+"""AI Copilot Router — conversational dataset reasoning with privacy enforcement."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as DBSession
 
 from ..core.auth import get_current_user
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.storage import StorageClient
-from ..models.domain import Dataset, User
+from ..models.domain import User
+from ..repositories.dataset_repository import DatasetRepository
 from ..schemas.ai import AIChatRequest, AIChatResponse
 from ..services.dataset_service import parse_bytes_to_rows
 from ..services.ai_copilot_service import process_copilot_query
@@ -29,7 +28,7 @@ async def ai_chat_query(
     dataset_name = "System Workspace"
 
     if req.dataset_id:
-        dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id, Dataset.org_id == current_user.org_id).first()
+        dataset = DatasetRepository(db).get_for_user(req.dataset_id, current_user)
         if dataset:
             dataset_name = dataset.name
             content = await storage_client.download(dataset.storage_path)

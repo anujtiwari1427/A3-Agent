@@ -1,6 +1,4 @@
-"""
-Reports Router — executive report generation, retrieval, and download.
-"""
+"""Reports Router — executive report generation, retrieval, and download with privacy enforcement."""
 
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -10,7 +8,9 @@ from ..core.auth import get_current_user
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.storage import StorageClient
-from ..models.domain import Dataset, Report, User
+from ..models.domain import User
+from ..repositories.dataset_repository import DatasetRepository
+from ..repositories.report_repository import ReportRepository
 from ..schemas.report import ReportGenerateRequest, ReportResponse
 from ..services.dataset_service import parse_bytes_to_rows
 from ..services.report_service import build_executive_report
@@ -25,7 +25,7 @@ async def generate_report(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == req.dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(req.dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
@@ -38,7 +38,7 @@ async def generate_report(
         dataset=dataset,
         req=req,
         db=db,
-        user_id=current_user.id
+        user_id=current_user.id,
     )
 
 
@@ -47,7 +47,7 @@ def list_reports(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    reports = db.query(Report).filter(Report.org_id == current_user.org_id).order_by(Report.created_at.desc()).all()
+    reports = ReportRepository(db).list_for_user(current_user)
     return [
         {
             "id": r.id,
@@ -66,7 +66,7 @@ def download_report_markdown(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    report = db.query(Report).filter(Report.id == report_id, Report.org_id == current_user.org_id).first()
+    report = ReportRepository(db).get_for_user(report_id, current_user)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
@@ -74,5 +74,5 @@ def download_report_markdown(
     return Response(
         content=report.content_markdown.encode("utf-8"),
         media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

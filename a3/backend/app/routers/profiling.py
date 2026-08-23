@@ -1,6 +1,4 @@
-"""
-Profiling Router — statistical profiling, 5-number distributions, and quality audit.
-"""
+"""Profiling Router — statistical profiling with privacy enforcement."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
@@ -9,7 +7,8 @@ from ..core.auth import get_current_user
 from ..core.config import settings
 from ..core.database import get_db
 from ..core.storage import StorageClient
-from ..models.domain import Dataset, User
+from ..models.domain import User
+from ..repositories.dataset_repository import DatasetRepository
 from ..schemas.analytics import AnalyticsResponse
 from ..services.dataset_service import parse_bytes_to_rows
 from ..services.profiling_service import generate_full_analytics
@@ -25,7 +24,7 @@ async def get_dataset_profile(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == current_user.org_id).first()
+    dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 

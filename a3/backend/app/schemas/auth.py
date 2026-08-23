@@ -1,12 +1,14 @@
-from typing import Optional
+"""Pydantic schemas for authentication and identity verification."""
 
+from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
     full_name: Optional[str] = Field(default=None, max_length=100)
+    license_key: Optional[str] = None
 
     @field_validator("email")
     @classmethod
@@ -24,8 +26,13 @@ class LoginRequest(BaseModel):
         return str(value).strip().lower()
 
 
-class LicenseLoginRequest(BaseModel):
+class VerifyLicenseRequest(BaseModel):
     license_key: str = Field(min_length=1, max_length=128)
+
+
+class VerifyLicenseResponse(BaseModel):
+    valid: bool
+    message: str
 
 
 class TokenResponse(BaseModel):

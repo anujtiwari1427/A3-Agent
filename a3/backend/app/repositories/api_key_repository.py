@@ -1,11 +1,12 @@
-"""Database access for ApiKey entities."""
+"""Database access and privacy-enforced queries for ApiKey entities."""
 
 import hashlib
 import secrets
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from sqlalchemy.orm import Session
 
-from ..models.domain import ApiKey
+from ..core.config import settings
+from ..models.domain import ApiKey, User
 
 
 def hash_api_key(key: str) -> str:
@@ -49,7 +50,24 @@ class ApiKeyRepository:
             .first()
         )
 
-    def list_for_org(self, org_id: str) -> list[ApiKey]:
+    def list_for_user(self, current_user: User) -> List[ApiKey]:
+        q = self.db.query(ApiKey).filter(ApiKey.org_id == current_user.org_id)
+        if settings.MODE == "local":
+            q = q.filter(ApiKey.user_id == current_user.id)
+        return q.order_by(ApiKey.created_at.desc()).all()
+
+    def revoke_for_user(self, key_id: str, current_user: User) -> bool:
+        q = self.db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.org_id == current_user.org_id)
+        if settings.MODE == "local":
+            q = q.filter(ApiKey.user_id == current_user.id)
+        key = q.first()
+        if not key:
+            return False
+        key.is_active = False
+        self.db.commit()
+        return True
+
+    def list_for_org(self, org_id: str) -> List[ApiKey]:
         return (
             self.db.query(ApiKey)
             .filter(ApiKey.org_id == org_id)

@@ -5,8 +5,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
 from app.models.domain import Org, User
-from app.routers.auth import license_login
-from app.schemas.auth import LoginRequest, RegisterRequest, LicenseLoginRequest
+from app.routers.auth import register, verify_license, login
+from app.schemas.auth import LoginRequest, RegisterRequest, VerifyLicenseRequest
 
 
 def test_register_normalizes_email():
@@ -24,25 +24,34 @@ def test_login_requires_valid_email():
         LoginRequest(email="not-an-email", password="password")
 
 
-def test_license_login_schema_validation():
-    req = LicenseLoginRequest(license_key="7710916655")
+def test_verify_license_schema():
+    req = VerifyLicenseRequest(license_key="7710916655")
     assert req.license_key == "7710916655"
 
 
-def test_license_login_flow():
+def test_registration_and_login_flow():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     db = Session()
 
-    # Valid default license key 7710916655
-    res = license_login(LicenseLoginRequest(license_key="7710916655"), db=db)
+    # Register user
+    res = register(
+        RegisterRequest(email="tester@example.com", password="secure_password_123", full_name="Tester"),
+        db=db,
+    )
     assert res.access_token is not None
     assert res.token_type == "bearer"
-    assert res.user["role"] == "admin"
+    assert res.user["email"] == "tester@example.com"
+    assert res.user["role"] == "owner"
+    assert res.user["org_id"] is not None
 
-    # Invalid license key
-    with pytest.raises(Exception):
-        license_login(LicenseLoginRequest(license_key="wrong_license_999"), db=db)
+    # Login user
+    login_res = login(
+        LoginRequest(email="tester@example.com", password="secure_password_123"),
+        db=db,
+    )
+    assert login_res.access_token is not None
+    assert login_res.user["id"] == res.user["id"]
 
     db.close()

@@ -1,4 +1,4 @@
-"""Authentication endpoints."""
+"""Authentication and Identity endpoints with personal workspace isolation."""
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,7 +8,14 @@ from ..core.auth import create_access_token, get_current_user, hash_password, ve
 from ..core.config import settings
 from ..core.database import get_db
 from ..models.domain import Org, User
-from ..schemas.auth import RegisterRequest, LoginRequest, LicenseLoginRequest, TokenResponse, UserResponse
+from ..schemas.auth import (
+    RegisterRequest,
+    LoginRequest,
+    VerifyLicenseRequest,
+    VerifyLicenseResponse,
+    TokenResponse,
+    UserResponse,
+)
 from ..services.audit_service import record_audit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -25,90 +32,72 @@ def _user_dict(user: User) -> dict:
     }
 
 
-@router.post("/license-login", response_model=TokenResponse)
-def license_login(body: LicenseLoginRequest, db: DBSession = Depends(get_db)):
-    """Authenticate and unlock local instance with a Security License Key."""
-    expected_license = (settings.LOCAL_LICENSE_KEY or "7710916655").strip()
+@router.post("/verify-license", response_model=VerifyLicenseResponse)
+def verify_license(body: VerifyLicenseRequest):
+    """Verify application activation key."""
+    expected_license = (settings.LOCAL_LICENSE_KEY or "").strip()
+    if not expected_license:
+        return VerifyLicenseResponse(valid=True, message="Security license active")
+
     if body.license_key.strip() != expected_license:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Security License Key. Access denied.",
+            detail="Invalid Security License Key. Activation failed.",
         )
 
-    local_org = db.query(Org).filter(Org.slug == "local").first()
-    if not local_org:
-        local_org = Org(id=str(uuid.uuid4()), name="Local Workspace", slug="local", plan="enterprise_local")
-        db.add(local_org)
-        db.flush()
-
-    admin_user = db.query(User).filter(User.org_id == local_org.id, User.role == "admin").first()
-    if not admin_user:
-        admin_user = User(
-            id=str(uuid.uuid4()),
-            email="licensed_admin@localhost",
-            full_name="Security License Administrator",
-            role="admin",
-            org_id=local_org.id,
-            is_active=True,
-        )
-        db.add(admin_user)
-        db.commit()
-        db.refresh(admin_user)
-
-    record_audit(
-        db,
-        org_id=admin_user.org_id,
-        user_id=admin_user.id,
-        action="user.license_unlock",
-        resource_type="security_license",
-        resource_id=f"KEY-{body.license_key[:4]}****",
-    )
-    db.commit()
-
-    token = create_access_token({"sub": admin_user.id, "role": admin_user.role, "org_id": admin_user.org_id})
-    return TokenResponse(access_token=token, user=_user_dict(admin_user))
-
+    return VerifyLicenseResponse(valid=True, message="Security License activated successfully")
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, db: DBSession = Depends(get_db)):
+    """Register a new user with an isolated personal workspace."""
     existing = db.query(User).filter(User.email == body.email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A user with this email already exists")
 
-    if settings.MODE == "cloud":
-        org = Org(
-            id=str(uuid.uuid4()),
-            name=f"{body.full_name or body.email}'s Org",
-            slug=str(uuid.uuid4())[:8],
-            plan="free",
-        )
-        db.add(org)
-        db.flush()
-        org_id = org.id
-        role = "analyst"
-    else:
-        local_org = db.query(Org).filter(Org.slug == "local").first()
-        if not local_org:
-            local_org = Org(id=str(uuid.uuid4()), name="Local", slug="local", plan="local")
-            db.add(local_org)
-            db.flush()
-        org_id = local_org.id
-        role = "admin"
+    if settings.REQUIRE_LICENSE_KEY:
+        expected_license = (settings.LOCAL_LICENSE_KEY or "").strip()
+        if expected_license and (not body.license_key or body.license_key.strip() != expected_license):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Valid security license key required for registration",
+            )
+
+    # Create a unique personal workspace/organization for EVERY user
+    workspace_suffix = uuid.uuid4().hex[:8]
+    workspace_slug = f"ws-{workspace_suffix}"
+    workspace_name = f"{body.full_name or body.email.split('@')[0]}'s Workspace"
+
+    org = Org(
+        id=str(uuid.uuid4()),
+        name=workspace_name,
+        slug=workspace_slug,
+        plan="personal" if settings.MODE == "local" else "free",
+    )
+    db.add(org)
+    db.flush()
 
     user = User(
         id=str(uuid.uuid4()),
         email=body.email,
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
-        role=role,
-        org_id=org_id,
+        role="owner",
+        org_id=org.id,
         is_active=True,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    record_audit(db, org_id=user.org_id, user_id=user.id, action="user.registered", resource_type="user", resource_id=user.id)
+
+    record_audit(
+        db,
+        org_id=user.org_id,
+        user_id=user.id,
+        action="user.registered",
+        resource_type="user",
+        resource_id=user.id,
+    )
     db.commit()
 
     token = create_access_token({"sub": user.id, "role": user.role, "org_id": user.org_id})
@@ -117,13 +106,21 @@ def register(body: RegisterRequest, db: DBSession = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: DBSession = Depends(get_db)):
+    """Authenticate with user credentials and issue a workspace-scoped session token."""
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not user.hashed_password or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
 
-    record_audit(db, org_id=user.org_id, user_id=user.id, action="user.login", resource_type="user", resource_id=user.id)
+    record_audit(
+        db,
+        org_id=user.org_id,
+        user_id=user.id,
+        action="user.login",
+        resource_type="user",
+        resource_id=user.id,
+    )
     db.commit()
     token = create_access_token({"sub": user.id, "role": user.role, "org_id": user.org_id})
     return TokenResponse(access_token=token, user=_user_dict(user))
@@ -131,6 +128,7 @@ def login(body: LoginRequest, db: DBSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
+    """Return authenticated user profile and active workspace."""
     return UserResponse(
         id=current_user.id,
         email=current_user.email,

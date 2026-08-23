@@ -194,17 +194,20 @@ async def create_dataset_from_bytes(
     db: DBSession,
     description: Optional[str] = None,
     is_cleaned: bool = False,
-    parent_id: Optional[str] = None
+    parent_id: Optional[str] = None,
+    visibility: str = "private",
 ) -> Dataset:
-    """Save content to storage and register Dataset record in database."""
+    """Save content to partitioned storage path and register Dataset record."""
     safe_name = sanitize_filename(filename)
-    unique_filename = f"{uuid.uuid4()}_{safe_name}"
-    storage_path = await storage_client.upload(content, unique_filename)
+    dataset_id = str(uuid.uuid4())
+    # Secure storage path structure: {org_id}/{user_id}/datasets/{dataset_id}/{filename}
+    storage_key = f"{org_id}/{user_id}/datasets/{dataset_id}/{safe_name}"
+    storage_path = await storage_client.upload(content, storage_key)
 
     file_type, row_count, col_count, size_bytes, health_score = extract_metadata(content, safe_name)
 
     dataset = Dataset(
-        id=str(uuid.uuid4()),
+        id=dataset_id,
         org_id=org_id,
         uploaded_by=user_id,
         name=safe_name,
@@ -217,6 +220,7 @@ async def create_dataset_from_bytes(
         size_bytes=size_bytes,
         health_score=health_score,
         is_cleaned=is_cleaned,
+        visibility=visibility,
         parent_dataset_id=parent_id,
     )
     db.add(dataset)
@@ -225,21 +229,28 @@ async def create_dataset_from_bytes(
     return dataset
 
 
-async def duplicate_dataset(dataset_id: str, user_id: str, org_id: str, db: DBSession) -> Optional[Dataset]:
-    """Create a standalone copy of an existing dataset."""
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.org_id == org_id).first()
-    if not dataset:
+async def duplicate_dataset(
+    dataset_id: str,
+    current_user: User,
+    db: DBSession,
+) -> Optional[Dataset]:
+    """Create a standalone copy of an existing dataset with ownership verification."""
+    from ..repositories.dataset_repository import DatasetRepository
+
+    source_dataset = DatasetRepository(db).get_for_user(dataset_id, current_user)
+    if not source_dataset:
         return None
 
-    content = await storage_client.download(dataset.storage_path)
-    new_name = f"Copy_of_{dataset.name}"
+    content = await storage_client.download(source_dataset.storage_path)
+    new_name = f"Copy_of_{source_dataset.name}"
     return await create_dataset_from_bytes(
         content=content,
         filename=new_name,
-        org_id=org_id,
-        user_id=user_id,
+        org_id=current_user.org_id,
+        user_id=current_user.id,
         db=db,
-        description=f"Duplicated from {dataset.name}",
-        is_cleaned=dataset.is_cleaned,
-        parent_id=dataset.id
+        description=f"Duplicated from {source_dataset.name}",
+        is_cleaned=source_dataset.is_cleaned,
+        parent_id=source_dataset.id,
+        visibility=getattr(source_dataset, "visibility", "private"),
     )
