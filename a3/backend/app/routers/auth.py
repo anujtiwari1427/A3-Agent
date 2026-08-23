@@ -1,6 +1,4 @@
-"""
-Auth Router — registration, login, and current user profile.
-"""
+"""Authentication endpoints."""
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +9,7 @@ from ..core.config import settings
 from ..core.database import get_db
 from ..models.domain import Org, User
 from ..schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
+from ..services.audit_service import record_audit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -30,12 +29,8 @@ def _user_dict(user: User) -> dict:
 def register(body: RegisterRequest, db: DBSession = Depends(get_db)):
     existing = db.query(User).filter(User.email == body.email).first()
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A user with this email already exists")
 
-    org_id = None
     if settings.MODE == "cloud":
         org = Org(
             id=str(uuid.uuid4()),
@@ -46,6 +41,7 @@ def register(body: RegisterRequest, db: DBSession = Depends(get_db)):
         db.add(org)
         db.flush()
         org_id = org.id
+        role = "analyst"
     else:
         local_org = db.query(Org).filter(Org.slug == "local").first()
         if not local_org:
@@ -53,35 +49,38 @@ def register(body: RegisterRequest, db: DBSession = Depends(get_db)):
             db.add(local_org)
             db.flush()
         org_id = local_org.id
+        role = "admin"
 
     user = User(
         id=str(uuid.uuid4()),
         email=body.email,
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
-        role="admin" if settings.MODE == "local" else "analyst",
+        role=role,
         org_id=org_id,
         is_active=True,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+    record_audit(db, org_id=user.org_id, user_id=user.id, action="user.registered", resource_type="user", resource_id=user.id)
+    db.commit()
 
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": user.id, "role": user.role, "org_id": user.org_id})
     return TokenResponse(access_token=token, user=_user_dict(user))
 
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: DBSession = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
-    if not user or not user.hashed_password:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    if not verify_password(body.password, user.hashed_password):
+    if not user or not user.hashed_password or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
 
-    token = create_access_token({"sub": user.id})
+    record_audit(db, org_id=user.org_id, user_id=user.id, action="user.login", resource_type="user", resource_id=user.id)
+    db.commit()
+    token = create_access_token({"sub": user.id, "role": user.role, "org_id": user.org_id})
     return TokenResponse(access_token=token, user=_user_dict(user))
 
 
