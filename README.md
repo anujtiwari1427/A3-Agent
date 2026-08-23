@@ -8,9 +8,9 @@ A3 is a local-first analytics platform built with **FastAPI, SQLAlchemy, Next.js
 
 - **Local-first:** SQLite + local analytics + optional Ollama
 - **Privacy-focused:** Copilot can reason from computed dataset metadata instead of raw records
-- **Modular:** FastAPI routers, services, schemas and typed frontend API client
+- **Modular:** FastAPI routers, repositories, services, schemas and typed frontend API client
 - **Analytics-focused:** profiling, correlation, regression, forecasting and anomaly detection
-- **Cloud-ready architecture:** PostgreSQL/Supabase configuration is separated from local mode
+- **Production path:** PostgreSQL, Alembic migrations, secure configuration, container health checks and CI
 
 ## 🏗️ Architecture
 
@@ -20,19 +20,21 @@ A3-Agent/
 │   ├── backend/
 │   │   ├── app/
 │   │   │   ├── core/          # config, auth, database, storage, security
-│   │   │   ├── models/        # SQLAlchemy models
+│   │   │   ├── models/        # SQLAlchemy models + indexes
 │   │   │   ├── schemas/       # Pydantic DTOs
+│   │   │   ├── repositories/  # database access
 │   │   │   ├── services/      # analytics and business logic
-│   │   │   ├── routers/       # REST API modules
+│   │   │   ├── routers/       # thin REST API modules
 │   │   │   └── main.py
-│   │   ├── requirements.txt
-│   │   └── .env.example
+│   │   ├── alembic/            # versioned database migrations
+│   │   ├── tests/              # automated backend tests
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
 │   └── frontend/
-│       ├── src/app/           # Next.js routes
-│       ├── src/components/    # UI, charts and workspace views
-│       └── src/lib/           # API client, types and exports
-├── .github/workflows/ci.yml   # backend + frontend CI
-└── README.md
+│       ├── src/app/            # Next.js routes
+│       ├── src/components/     # UI, charts and workspace views
+│       └── src/lib/            # API client, types and exports
+└── .github/workflows/          # CI quality gates
 ```
 
 ## 🚀 Feature Workspaces
@@ -73,16 +75,17 @@ venv\Scripts\activate
 source venv/bin/activate
 
 pip install -r requirements.txt
-```
+copy .env.example .env.local  # Windows
+# cp .env.example .env.local  # macOS/Linux
 
-Copy `.env.example` to `.env.local`, then start the API:
-
-```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
+A local database is initialized automatically for development. The first local admin receives a **random password in the backend startup log** unless `LOCAL_ADMIN_PASSWORD` is explicitly set in `.env.local`.
+
 - API docs: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/api/v1/health`
+- Liveness: `http://localhost:8000/api/v1/health`
+- Readiness: `http://localhost:8000/api/v1/ready`
 
 ### Frontend
 
@@ -94,44 +97,59 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-### Local demo login
+### Cloud database migrations
 
-Local mode creates a demo account on an empty database:
+Production/cloud deployments should use Alembic rather than startup table creation:
 
-- Username: `admin`
-- Password: `admin123`
+```bash
+cd a3/backend
+alembic upgrade head
+```
 
-**Do not expose the local demo configuration to the public internet. Change the password before using A3 outside a private development environment.**
+Set `MODE=cloud`, a PostgreSQL `CLOUD_DATABASE_URL`, a strong `JWT_SECRET`, and explicit `ALLOWED_ORIGINS` before deployment.
 
-## 🔐 Security Notes
+## 🔐 Security
 
-- Cloud mode requires an explicit `JWT_SECRET` with at least 32 characters.
+- Cloud mode requires an explicit JWT secret of at least 32 characters.
 - Local mode generates an ephemeral JWT secret when one is not supplied.
+- No hardcoded production admin password is shipped.
 - CORS is environment-driven and does not use wildcard origins with credentials.
 - Passwords are hashed with bcrypt.
-- Dataset uploads should remain behind authenticated endpoints.
-- Local storage paths should be treated as private application data.
-- Production database schema changes should use Alembic migrations rather than relying on startup table creation.
+- Uploads are size- and extension-validated.
+- Storage paths are resolved and rejected if they escape the configured storage root.
+- Dataset access is scoped by organization.
+- Production database schema changes are versioned with Alembic.
+- The backend container runs as a non-root user and exposes a health check.
 
-## 🧪 CI
+## 🧪 Quality Gates
 
-GitHub Actions runs backend Python compilation checks and frontend install, lint and build checks on pushes and pull requests to `main`.
+GitHub Actions validates the backend with Python compilation, pytest, clean-database migrations and Alembic checks. Frontend CI validates dependency installation, linting and production builds.
 
-## 🗺️ Roadmap
+## 🗺️ Roadmap to Production Scale
 
-### Near term
-- [ ] Replace large in-memory dataset processing with streaming ingestion
-- [ ] Split dataset ingestion/storage logic from API routers
-- [ ] Add unit and integration tests for statistical algorithms
-- [ ] Add Alembic migration workflow
-- [ ] Add background jobs for long-running analytics
+### Reliability
+- [x] Repository/service separation for dataset workflows
+- [x] Security-focused configuration and storage validation
+- [x] Automated tests and CI
+- [x] Alembic migrations
+- [x] Health/readiness endpoints
+- [ ] Integration and end-to-end browser tests
 
 ### Scale
+- [ ] Streaming dataset ingestion
 - [ ] DuckDB + Parquet analytical engine
-- [ ] PostgreSQL production mode
-- [ ] Object storage integration
-- [ ] Redis-backed job queue and caching
-- [ ] Multi-tenant RBAC and audit logs
+- [ ] Managed PostgreSQL deployment
+- [ ] S3/Supabase object storage adapter
+- [ ] Redis-backed background job queue
+- [ ] Distributed caching
+
+### Enterprise
+- [ ] Fine-grained RBAC
+- [ ] Audit log pipeline
+- [ ] API keys and service accounts
+- [ ] Usage quotas and billing hooks
+- [ ] Team/workspace management
+- [ ] SSO/OIDC
 
 ### AI
 - [ ] Tool-based Copilot analytics execution
