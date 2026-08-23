@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { AnomaliesData, DatasetInfo } from "../../lib/types";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
 import { api } from "../../lib/api";
 import { useToast } from "../layout/Toast";
 
@@ -22,23 +21,34 @@ export function AnomalyView({ dataset }: AnomalyViewProps) {
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    if (dataset) {
-      loadAnomaliesData();
-    }
-  }, [dataset, threshold, method]);
-
-  async function loadAnomaliesData() {
+    let cancelled = false;
     if (!dataset) return;
-    setLoading(true);
-    try {
-      const res = await api.getAnomalies(dataset.id, threshold, method);
-      setAnomalies(res);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to scan anomalies");
-    } finally {
-      setLoading(false);
+
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await api.getAnomalies(dataset!.id, threshold, method);
+        if (!cancelled) {
+          setAnomalies(res);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "Failed to scan anomalies";
+          toast.error(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataset, threshold, method, toast]);
 
   if (!dataset) {
     return <div className="p-12 text-center text-xs text-gray-500">Please select a dataset to detect anomalies.</div>;
@@ -73,7 +83,7 @@ export function AnomalyView({ dataset }: AnomalyViewProps) {
             <span className="text-gray-400 font-medium">Detection Method:</span>
             <select
               value={method}
-              onChange={(e: any) => setMethod(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMethod(e.target.value as "z_score" | "iqr")}
               className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
             >
               <option value="z_score" className="bg-[#0b0f19]">Standard Score (Z-Score &gt; σ)</option>

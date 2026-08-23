@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { DatasetInfo } from "../../lib/types";
+import React, { useState, useEffect, useCallback } from "react";
+import { DatasetInfo, DatasetRow } from "../../lib/types";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -26,7 +26,7 @@ export function DatasetsView({
 }: DatasetsViewProps) {
   const toast = useToast();
   const [dataGridHeaders, setDataGridHeaders] = useState<string[]>([]);
-  const [dataGridRows, setDataGridRows] = useState<Record<string, any>[]>([]);
+  const [dataGridRows, setDataGridRows] = useState<DatasetRow[]>([]);
   const [dataGridTotal, setDataGridTotal] = useState(0);
   const [dataGridPage, setDataGridPage] = useState(1);
   const [dataGridTotalPages, setDataGridTotalPages] = useState(1);
@@ -36,12 +36,7 @@ export function DatasetsView({
 
   const selectedDataset = datasets.find((d) => d.id === selectedDatasetId);
 
-  useEffect(() => {
-    if (!selectedDatasetId) return;
-    loadGrid(selectedDatasetId, 1);
-  }, [selectedDatasetId]);
-
-  async function loadGrid(id: string, page: number) {
+  const loadGrid = useCallback(async (id: string, page: number) => {
     setDataGridLoading(true);
     try {
       const res = await api.getDatasetData(id, page, 50);
@@ -50,12 +45,38 @@ export function DatasetsView({
       setDataGridTotal(res.total_rows);
       setDataGridPage(res.page);
       setDataGridTotalPages(res.total_pages);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load tabular grid");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load tabular grid";
+      toast.error(msg);
     } finally {
       setDataGridLoading(false);
     }
-  }
+  }, [toast]);
+
+  useEffect(() => {
+    if (!selectedDatasetId) return;
+    let isMounted = true;
+    void api
+      .getDatasetData(selectedDatasetId, 1, 50)
+      .then((res) => {
+        if (isMounted) {
+          setDataGridHeaders(res.columns);
+          setDataGridRows(res.rows);
+          setDataGridTotal(res.total_rows);
+          setDataGridPage(res.page);
+          setDataGridTotalPages(res.total_pages);
+        }
+      })
+      .catch((err: unknown) => {
+        if (isMounted) {
+          const msg = err instanceof Error ? err.message : "Failed to load tabular grid";
+          toast.error(msg);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDatasetId, toast]);
 
   async function handleDelete(id: string, name: string) {
     if (!window.confirm(`Are you sure you want to delete dataset "${name}"?`)) return;
@@ -64,8 +85,9 @@ export function DatasetsView({
       await api.deleteDataset(id);
       toast.success(`Deleted dataset "${name}"`);
       onRefreshDatasets();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete dataset");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete dataset";
+      toast.error(msg);
     } finally {
       setActionLoadingId(null);
     }
@@ -77,8 +99,9 @@ export function DatasetsView({
       const copy = await api.duplicateDataset(id);
       toast.success(`Duplicated dataset as "${copy.name}"`);
       onRefreshDatasets(copy.id);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to duplicate dataset");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to duplicate dataset";
+      toast.error(msg);
     } finally {
       setActionLoadingId(null);
     }

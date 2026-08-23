@@ -26,11 +26,12 @@ export function ReportsView({ dataset }: ReportsViewProps) {
   async function handleGenerateReport() {
     setLoading(true);
     try {
-      const res = await api.generateReport(dataset!.id, reportTitle || undefined);
+      const res = await api.generateReport(dataset!.id, reportTitle.trim() || undefined);
       setReport(res);
       toast.success("Executive Strategic Report compiled successfully!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to generate executive report");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to generate executive report";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -126,7 +127,7 @@ export function ReportsView({ dataset }: ReportsViewProps) {
           </div>
         </Card>
       ) : (
-        <Card className="py-16 text-center space-y-4 max-w-xl mx-auto">
+        <Card className="py-12 px-6 text-center space-y-4 max-w-xl mx-auto">
           <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-2xl text-emerald-400 mx-auto">
             📄
           </div>
@@ -134,9 +135,18 @@ export function ReportsView({ dataset }: ReportsViewProps) {
           <p className="text-xs text-gray-400 leading-relaxed">
             Click below to automatically compile all statistical distributions, anomalies, correlations, forecasts, and AI recommendations into a publication-grade executive summary.
           </p>
-          <Button variant="primary" size="md" onClick={handleGenerateReport} loading={loading}>
-            Compile Report Now
-          </Button>
+          <div className="max-w-md mx-auto space-y-3 pt-2">
+            <input
+              type="text"
+              placeholder="Report title (optional, e.g. Q4 Executive Data Briefing)"
+              value={reportTitle}
+              onChange={(e) => setReportTitle(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+            />
+            <Button variant="primary" size="md" onClick={handleGenerateReport} loading={loading} className="w-full">
+              Compile Report Now
+            </Button>
+          </div>
         </Card>
       )}
     </div>

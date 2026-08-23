@@ -59,6 +59,7 @@ export function ProfileView({ dataset, analytics, loading }: ProfileViewProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {loading && <Badge variant="blue">Updating Profile…</Badge>}
           <Badge variant={analytics.quality_profile.overall_score >= 80 ? "emerald" : "amber"} size="md">
             Data Quality Score: {analytics.quality_profile.overall_score}/100
           </Badge>

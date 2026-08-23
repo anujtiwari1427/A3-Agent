@@ -13,7 +13,7 @@ interface NavItem {
 interface SidebarProps {
   currentView: ViewType;
   onSelectView: (view: ViewType) => void;
-  datasetSelected: boolean;
+  datasetSelected?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -90,10 +90,10 @@ export function Sidebar({ currentView, onSelectView, datasetSelected }: SidebarP
       <div className="pt-3 border-t border-white/5 mt-auto">
         <div className="flex items-center justify-between px-2 py-2 rounded-xl bg-white/[0.02] border border-white/5 text-[11px]">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[var(--accent-emerald)] animate-pulse" />
-            <span className="text-gray-300 font-medium">Local Mode</span>
+            <span className={`w-2 h-2 rounded-full ${datasetSelected ? "bg-[var(--accent-emerald)]" : "bg-amber-400"} animate-pulse`} />
+            <span className="text-gray-300 font-medium">{datasetSelected ? "Dataset Active" : "No Dataset"}</span>
           </div>
-          <span className="text-[var(--text-muted)] font-mono text-[10px]">SQLite Active</span>
+          <span className="text-[var(--text-muted)] font-mono text-[10px]">A3 Engine</span>
         </div>
       </div>
     </aside>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { AnalyticsData, DatasetInfo } from "../../lib/types";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
@@ -51,20 +51,15 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
   const numCols = columns.filter((c) => c.type === "numeric");
   const dimCols = columns.filter((c) => c.type !== "numeric");
 
+  const defaultX = dimCols.length > 0 ? dimCols[0].name : (columns.length > 0 ? columns[0].name : "");
+  const defaultY = numCols.length > 0 ? numCols[0].name : (columns.length > 0 ? columns[0].name : "");
+  const defaultZ = numCols.length > 1 ? numCols[1].name : (numCols[0]?.name || (columns.length > 0 ? columns[0].name : ""));
+
+  const activeX = selectedX || defaultX;
+  const activeY = selectedY || defaultY;
+  const activeZ = selectedZ || defaultZ;
+
   const recommendations = getChartRecommendations(columns);
-
-  useEffect(() => {
-    if (columns.length > 0) {
-      if (dimCols.length > 0 && !selectedX) setSelectedX(dimCols[0].name);
-      else if (!selectedX) setSelectedX(columns[0].name);
-
-      if (numCols.length > 0 && !selectedY) setSelectedY(numCols[0].name);
-      else if (!selectedY) setSelectedY(columns[0].name);
-
-      if (numCols.length > 1 && !selectedZ) setSelectedZ(numCols[1].name);
-      else if (!selectedZ) setSelectedZ(numCols[0]?.name || columns[0].name);
-    }
-  }, [columns]);
 
   function applyRecommendation(rec: ChartRecommendation) {
     if (rec.type === "area") setChartType("area");
@@ -106,14 +101,14 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
 
   // Pre-aggregate data points based on X and Y bindings
   const sampleRows = analytics.chart_data?.labels?.map((lbl, idx) => ({
-    [selectedX]: lbl,
-    [selectedY]: analytics.chart_data.values[idx] || 0,
-    [selectedZ]: (analytics.chart_data.values[idx] || 1) * 1.5,
+    [activeX]: lbl,
+    [activeY]: analytics.chart_data.values[idx] || 0,
+    [activeZ]: (analytics.chart_data.values[idx] || 1) * 1.5,
   })) || [];
 
-  const rawLabels = sampleRows.map((r) => String(r[selectedX] ?? ""));
-  const rawValues = sampleRows.map((r) => Number(r[selectedY] ?? 0));
-  const rawZValues = sampleRows.map((r) => Number(r[selectedZ] ?? 5));
+  const rawLabels = sampleRows.map((r) => String(r[activeX] ?? ""));
+  const rawValues = sampleRows.map((r) => Number(r[activeY] ?? 0));
+  const rawZValues = sampleRows.map((r) => Number(r[activeZ] ?? 5));
 
   const scatterPoints = rawLabels.map((lbl, i) => ({
     x: Number(lbl) || i + 1,
@@ -131,7 +126,7 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
     value: rawValues[i] || 0,
   }));
 
-  const activeStats = analytics.summary[selectedY] || {
+  const activeStats = analytics.summary[activeY] || {
     min: 0,
     q1: 25,
     median: 50,
@@ -139,9 +134,9 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
     max: 100,
   };
 
-  const activeHistBins = analytics.summary[selectedY]?.histogram_bins || [];
+  const activeHistBins = analytics.summary[activeY]?.histogram_bins || [];
 
-  const chartTitle = customTitle || `${selectedY} by ${selectedX} (${aggregation.toUpperCase()})`;
+  const chartTitle = customTitle || `${activeY} by ${activeX} (${aggregation.toUpperCase()})`;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -200,22 +195,22 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
             <label className="text-xs font-medium text-gray-200 block">Chart Type</label>
             <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
               {[
-                { id: "area", label: "Area Fill" },
-                { id: "line", label: "Line Plot" },
-                { id: "bar", label: "Vertical Bar" },
-                { id: "horizontal_bar", label: "H-Bar" },
-                { id: "scatter", label: "Scatter Plot" },
-                { id: "bubble", label: "Bubble Chart" },
-                { id: "pie", label: "Pie Chart" },
-                { id: "donut", label: "Donut Chart" },
-                { id: "histogram", label: "Histogram" },
-                { id: "boxplot", label: "Box Plot" },
-                { id: "heatmap", label: "Heatmap" },
-                { id: "radar", label: "Radar Plot" },
+                { id: "area" as const, label: "Area Fill" },
+                { id: "line" as const, label: "Line Plot" },
+                { id: "bar" as const, label: "Vertical Bar" },
+                { id: "horizontal_bar" as const, label: "H-Bar" },
+                { id: "scatter" as const, label: "Scatter Plot" },
+                { id: "bubble" as const, label: "Bubble Chart" },
+                { id: "pie" as const, label: "Pie Chart" },
+                { id: "donut" as const, label: "Donut Chart" },
+                { id: "histogram" as const, label: "Histogram" },
+                { id: "boxplot" as const, label: "Box Plot" },
+                { id: "heatmap" as const, label: "Heatmap" },
+                { id: "radar" as const, label: "Radar Plot" },
               ].map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setChartType(t.id as any)}
+                  onClick={() => setChartType(t.id)}
                   className={`p-2 rounded-xl text-xs font-medium transition-all text-center cursor-pointer ${
                     chartType === t.id
                       ? "bg-emerald-500/20 border border-emerald-500/40 text-white font-semibold"
@@ -244,7 +239,7 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-gray-200 block">Dimension (X Axis)</label>
             <select
-              value={selectedX}
+              value={activeX}
               onChange={(e) => setSelectedX(e.target.value)}
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
             >
@@ -260,7 +255,7 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-gray-200 block">Metric (Y Axis)</label>
             <select
-              value={selectedY}
+              value={activeY}
               onChange={(e) => setSelectedY(e.target.value)}
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
             >
@@ -277,7 +272,7 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-purple-300 block">Bubble Size (Z Axis)</label>
               <select
-                value={selectedZ}
+                value={activeZ}
                 onChange={(e) => setSelectedZ(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-purple-500/20 text-xs text-white"
               >
@@ -295,7 +290,7 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
             <label className="text-xs font-medium text-gray-200 block">Aggregation Function</label>
             <select
               value={aggregation}
-              onChange={(e: any) => setAggregation(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAggregation(e.target.value as "avg" | "sum" | "count" | "min" | "max")}
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
             >
               <option value="avg" className="bg-[#0b0f19]">Average (Mean)</option>
@@ -311,14 +306,14 @@ export function GraphStudio({ dataset, analytics }: GraphStudioProps) {
             <label className="text-xs font-medium text-gray-200 block">Color Theme</label>
             <div className="flex gap-2">
               {[
-                { id: "emerald", color: "bg-emerald-400" },
-                { id: "blue", color: "bg-blue-400" },
-                { id: "purple", color: "bg-purple-400" },
-                { id: "amber", color: "bg-amber-400" },
+                { id: "emerald" as const, color: "bg-emerald-400" },
+                { id: "blue" as const, color: "bg-blue-400" },
+                { id: "purple" as const, color: "bg-purple-400" },
+                { id: "amber" as const, color: "bg-amber-400" },
               ].map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => setChartColor(c.id as any)}
+                  onClick={() => setChartColor(c.id)}
                   className={`w-7 h-7 rounded-full ${c.color} cursor-pointer transition-transform ${
                     chartColor === c.id ? "scale-125 ring-2 ring-white" : "opacity-60 hover:opacity-100"
                   }`}

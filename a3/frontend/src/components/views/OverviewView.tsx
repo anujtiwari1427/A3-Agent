@@ -160,7 +160,7 @@ export function OverviewView({
               Graph Studio ↗
             </Button>
           </div>
-          {analytics?.chart_data ? (
+          {analytics?.chart_data && !loading ? (
             <LineAreaChart
               labels={analytics.chart_data.labels}
               values={analytics.chart_data.values}
@@ -168,7 +168,9 @@ export function OverviewView({
               color="emerald"
             />
           ) : (
-            <div className="h-48 flex items-center justify-center text-xs text-gray-500">Loading chart telemetry…</div>
+            <div className="h-48 flex items-center justify-center text-xs text-gray-500">
+              {loading ? "Refreshing analytics telemetry…" : "No trend data available."}
+            </div>
           )}
         </Card>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { AnalyticsData, DatasetInfo, WhatIfData } from "../../lib/types";
+import { AnalyticsData, DatasetInfo, WhatIfData, WhatIfDriverVariable } from "../../lib/types";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -17,7 +17,11 @@ interface WhatIfViewProps {
 export function WhatIfView({ dataset, analytics }: WhatIfViewProps) {
   const toast = useToast();
 
+  const numCols = analytics?.columns?.filter((c) => c.type === "numeric") || [];
+  const defaultTarget = numCols.length > 0 ? numCols[0].name : "";
   const [targetMetric, setTargetMetric] = useState<string>("");
+  const activeTarget = targetMetric || defaultTarget;
+
   const [driverVar1, setDriverVar1] = useState<string>("");
   const [driverPct1, setDriverPct1] = useState<number>(10);
   const [driverVar2, setDriverVar2] = useState<string>("");
@@ -26,44 +30,46 @@ export function WhatIfView({ dataset, analytics }: WhatIfViewProps) {
   const [simulation, setSimulation] = useState<WhatIfData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const numCols = analytics?.columns?.filter((c) => c.type === "numeric") || [];
-
   useEffect(() => {
-    if (numCols.length > 0 && !targetMetric) {
-      setTargetMetric(numCols[0].name);
-      if (numCols.length > 1) setDriverVar1(numCols[1].name);
-      if (numCols.length > 2) setDriverVar2(numCols[2].name);
+    let cancelled = false;
+    if (!dataset || !activeTarget) {
+      return;
     }
-  }, [analytics]);
 
-  useEffect(() => {
-    if (dataset && targetMetric) {
-      runSimulation();
-    }
-  }, [dataset, targetMetric, driverVar1, driverPct1, driverVar2, driverPct2]);
-
-  async function runSimulation() {
-    if (!dataset || !targetMetric) return;
-    setLoading(true);
-
-    const drivers = [];
+    const drivers: WhatIfDriverVariable[] = [];
     if (driverVar1) drivers.push({ variable_name: driverVar1, percentage_change: driverPct1 });
     if (driverVar2) drivers.push({ variable_name: driverVar2, percentage_change: driverPct2 });
 
-    try {
-      const res = await api.simulateWhatIf(dataset.id, {
-        target_metric: targetMetric,
-        scenario_name: "Strategic Sensitivity Simulation",
-        formula_type: "multiplicative",
-        driver_variables: drivers,
-      });
-      setSimulation(res);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to compute simulation");
-    } finally {
-      setLoading(false);
+    async function executeSimulation() {
+      try {
+        setLoading(true);
+        const res = await api.simulateWhatIf(dataset!.id, {
+          target_metric: activeTarget,
+          scenario_name: "Strategic Sensitivity Simulation",
+          formula_type: "multiplicative",
+          driver_variables: drivers,
+        });
+        if (!cancelled) {
+          setSimulation(res);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "Failed to compute simulation";
+          toast.error(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    void executeSimulation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataset, activeTarget, driverVar1, driverPct1, driverVar2, driverPct2, toast]);
 
   if (!dataset) {
     return <div className="p-12 text-center text-xs text-gray-500">Please select a dataset to run What-If simulations.</div>;
@@ -188,7 +194,10 @@ export function WhatIfView({ dataset, analytics }: WhatIfViewProps) {
         {/* Simulation Output Scorecard & Chart */}
         <Card className="lg:col-span-2 space-y-5">
           <div className="flex items-center justify-between pb-3 border-b border-white/10">
-            <h3 className="text-sm font-semibold text-white">Simulated Outcome for {targetMetric}</h3>
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <span>Simulated Outcome for {activeTarget}</span>
+              {loading && <span className="text-xs text-blue-400 font-normal animate-pulse">(updating...)</span>}
+            </h3>
             {simulation && (
               <Badge variant={simulation.delta_percentage >= 0 ? "emerald" : "red"}>
                 {simulation.delta_percentage >= 0 ? "+" : ""}{simulation.delta_percentage.toFixed(1)}% Projected Impact

@@ -74,8 +74,9 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
       });
       setPreviewData(res);
       toast.info("Generated clean preview diff");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to generate preview");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to generate preview";
+      toast.error(message);
     } finally {
       setIsPreviewLoading(false);
     }
@@ -104,8 +105,9 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
           : `Cleaned "${res.name}" non-destructively (Raw file backed up)`
       );
       onCleaningApplied(res.id);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to apply clean routine");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to apply clean routine";
+      toast.error(message);
     } finally {
       setIsApplying(false);
     }
@@ -188,7 +190,7 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
                 </div>
               ) : (
                 <span className="text-[11px] text-gray-500 italic block">
-                  Click 'Preview Changes Diff' to load schema columns.
+                  Click &apos;Preview Changes Diff&apos; to load schema columns.
                 </span>
               )}
             </div>
@@ -213,7 +215,7 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
             <label className="text-xs font-medium text-gray-200 block">Numeric Null Imputation</label>
             <select
               value={imputeNumeric}
-              onChange={(e: any) => setImputeNumeric(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setImputeNumeric(e.target.value as "mean" | "median" | "zero" | "drop" | "none")}
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[var(--accent-emerald)]"
             >
               <option value="mean" className="bg-[#0b0f19]">Fill with Column Mean (Recommended)</option>
@@ -229,7 +231,7 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
             <label className="text-xs font-medium text-gray-200 block">Categorical Null Imputation</label>
             <select
               value={imputeCategorical}
-              onChange={(e: any) => setImputeCategorical(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setImputeCategorical(e.target.value as "mode" | "placeholder" | "drop" | "none")}
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[var(--accent-emerald)]"
             >
               <option value="mode" className="bg-[#0b0f19]">Fill with Most Frequent (Mode)</option>
@@ -253,7 +255,7 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
             <label className="text-xs font-medium text-gray-200 block">Statistical Outlier Handling (Z-Score &gt; 3.0)</label>
             <select
               value={outlierHandling}
-              onChange={(e: any) => setOutlierHandling(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setOutlierHandling(e.target.value as "none" | "clip" | "drop")}
               className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[var(--accent-emerald)]"
             >
               <option value="clip" className="bg-[#0b0f19]">Winsorize / Clip to ±3.0 StdDev boundary</option>
@@ -288,13 +290,13 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
               <label className="text-xs font-medium text-gray-200 block">String Case Normalization</label>
               <select
                 value={caseNormalization}
-                onChange={(e: any) => setCaseNormalization(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCaseNormalization(e.target.value as "none" | "lower" | "upper" | "title")}
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[var(--accent-emerald)]"
               >
                 <option value="none" className="bg-[#0b0f19]">Preserve Existing Casing</option>
-                <option value="lower" className="bg-[#0b0f19]">lowercase (e.g. 'john doe')</option>
-                <option value="upper" className="bg-[#0b0f19]">UPPERCASE (e.g. 'JOHN DOE')</option>
-                <option value="title" className="bg-[#0b0f19]">Title Case (e.g. 'John Doe')</option>
+                <option value="lower" className="bg-[#0b0f19]">lowercase (e.g. &apos;john doe&apos;)</option>
+                <option value="upper" className="bg-[#0b0f19]">UPPERCASE (e.g. &apos;JOHN DOE&apos;)</option>
+                <option value="title" className="bg-[#0b0f19]">Title Case (e.g. &apos;John Doe&apos;)</option>
               </select>
             </div>
           </div>
@@ -429,7 +431,7 @@ export function CleaningStudio({ dataset, onCleaningApplied }: CleaningStudioPro
           ) : (
             <div className="py-16 text-center text-xs text-gray-500 space-y-3">
               <span className="text-3xl block">✨</span>
-              <p>Configure your cleaning rules on the left and click "Preview Changes Diff" to simulate transformations.</p>
+              <p>Configure your cleaning rules on the left and click &quot;Preview Changes Diff&quot; to simulate transformations.</p>
               <Button variant="outline" size="sm" onClick={handleGeneratePreview} loading={isPreviewLoading}>
                 Generate Preview Now
               </Button>

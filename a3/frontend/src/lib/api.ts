@@ -15,13 +15,17 @@ import {
   AIChatResponse,
   ReportData,
   JsonObject,
+  JobInfo,
 } from "./types";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
     this.name = "ApiError";
   }
 }
@@ -31,7 +35,15 @@ function getAuthToken(): string | null {
   return localStorage.getItem("a3_token");
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+function generateRequestId(): string {
+  return "req_" + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+}
+
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  signal?: AbortSignal
+): Promise<T> {
   const token = getAuthToken();
   const headers: Record<string, string> = {
     ...(options.headers instanceof Headers
@@ -42,24 +54,27 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   };
 
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (!headers["X-Request-ID"]) headers["X-Request-ID"] = generateRequestId();
 
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(endpoint, { ...options, headers });
+  const res = await fetch(endpoint, { ...options, headers, signal });
 
   if (!res.ok) {
     let errorDetail = `Request failed with status ${res.status}`;
+    let errorCode: string | undefined = undefined;
     try {
       const errJson: unknown = await res.json();
-      if (isRecord(errJson) && typeof errJson.detail === "string") {
-        errorDetail = errJson.detail;
+      if (isRecord(errJson)) {
+        if (typeof errJson.detail === "string") errorDetail = errJson.detail;
+        if (typeof errJson.error_code === "string") errorCode = errJson.error_code;
       }
     } catch {
-      // Keep the HTTP status fallback.
+      // Keep fallback
     }
-    throw new ApiError(errorDetail, res.status);
+    throw new ApiError(errorDetail, res.status, errorCode);
   }
 
   if (res.status === 204) return {} as T;
@@ -71,47 +86,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export const api = {
-  async getMe(): Promise<UserInfo> {
-    return request<UserInfo>("/api/v1/auth/me");
+  async getMe(signal?: AbortSignal): Promise<UserInfo> {
+    return request<UserInfo>("/api/v1/auth/me", {}, signal);
   },
 
-  async listDatasets(): Promise<DatasetInfo[]> {
-    return request<DatasetInfo[]>("/api/v1/datasets");
+  async listDatasets(signal?: AbortSignal): Promise<DatasetInfo[]> {
+    return request<DatasetInfo[]>("/api/v1/datasets", {}, signal);
   },
 
-  async getDataset(id: string): Promise<DatasetInfo> {
-    return request<DatasetInfo>(`/api/v1/datasets/${id}`);
+  async getDataset(id: string, signal?: AbortSignal): Promise<DatasetInfo> {
+    return request<DatasetInfo>(`/api/v1/datasets/${id}`, {}, signal);
   },
 
-  async uploadDataset(file: File): Promise<DatasetInfo> {
+  async uploadDataset(file: File, signal?: AbortSignal): Promise<DatasetInfo> {
     const formData = new FormData();
     formData.append("file", file);
-    return request<DatasetInfo>("/api/v1/datasets/upload", { method: "POST", body: formData });
+    return request<DatasetInfo>("/api/v1/datasets/upload", { method: "POST", body: formData }, signal);
   },
 
-  async createSampleDataset(sampleType: string): Promise<DatasetInfo> {
-    return request<DatasetInfo>(`/api/v1/datasets/sample/${sampleType}`, { method: "POST" });
+  async createSampleDataset(sampleType: string, signal?: AbortSignal): Promise<DatasetInfo> {
+    return request<DatasetInfo>(`/api/v1/datasets/sample/${sampleType}`, { method: "POST" }, signal);
   },
 
-  async deleteDataset(id: string): Promise<void> {
-    return request<void>(`/api/v1/datasets/${id}`, { method: "DELETE" });
+  async deleteDataset(id: string, signal?: AbortSignal): Promise<void> {
+    return request<void>(`/api/v1/datasets/${id}`, { method: "DELETE" }, signal);
   },
 
-  async renameDataset(id: string, name: string, description?: string): Promise<DatasetInfo> {
-    return request<DatasetInfo>(`/api/v1/datasets/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ name, description }),
-    });
+  async renameDataset(
+    id: string,
+    name: string,
+    description?: string,
+    signal?: AbortSignal
+  ): Promise<DatasetInfo> {
+    return request<DatasetInfo>(
+      `/api/v1/datasets/${id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ name, description }),
+      },
+      signal
+    );
   },
 
-  async duplicateDataset(id: string): Promise<DatasetInfo> {
-    return request<DatasetInfo>(`/api/v1/datasets/${id}/duplicate`, { method: "POST" });
+  async duplicateDataset(id: string, signal?: AbortSignal): Promise<DatasetInfo> {
+    return request<DatasetInfo>(`/api/v1/datasets/${id}/duplicate`, { method: "POST" }, signal);
   },
 
   async getDatasetData(
     id: string,
     page: number = 1,
-    pageSize: number = 50
+    pageSize: number = 50,
+    signal?: AbortSignal
   ): Promise<{
     columns: string[];
     rows: JsonObject[];
@@ -120,27 +145,39 @@ export const api = {
     page_size: number;
     total_pages: number;
   }> {
-    return request(`/api/v1/datasets/${id}/data?page=${page}&page_size=${pageSize}`);
+    return request(`/api/v1/datasets/${id}/data?page=${page}&page_size=${pageSize}`, {}, signal);
   },
 
-  async getAnalytics(id: string): Promise<AnalyticsData> {
-    return request<AnalyticsData>(`/api/v1/datasets/${id}/analytics`);
+  async getAnalytics(id: string, signal?: AbortSignal): Promise<AnalyticsData> {
+    return request<AnalyticsData>(`/api/v1/datasets/${id}/analytics`, {}, signal);
   },
 
-  async getCorrelations(id: string): Promise<CorrelationData> {
-    return request<CorrelationData>(`/api/v1/datasets/${id}/correlations`);
+  async getCorrelations(id: string, signal?: AbortSignal): Promise<CorrelationData> {
+    return request<CorrelationData>(`/api/v1/datasets/${id}/correlations`, {}, signal);
   },
 
-  async getRegression(id: string, feature: string, target: string): Promise<RegressionData> {
+  async getRegression(
+    id: string,
+    feature: string,
+    target: string,
+    signal?: AbortSignal
+  ): Promise<RegressionData> {
     return request<RegressionData>(
-      `/api/v1/datasets/${id}/regression?feature=${encodeURIComponent(feature)}&target=${encodeURIComponent(target)}`
+      `/api/v1/datasets/${id}/regression?feature=${encodeURIComponent(feature)}&target=${encodeURIComponent(target)}`,
+      {},
+      signal
     );
   },
 
-  async getGroupBy(id: string, groupCol: string, metricCols: string[]): Promise<GroupByData> {
+  async getGroupBy(
+    id: string,
+    groupCol: string,
+    metricCols: string[],
+    signal?: AbortSignal
+  ): Promise<GroupByData> {
     const params = new URLSearchParams({ group_col: groupCol });
     metricCols.forEach((m) => params.append("metric_cols", m));
-    return request<GroupByData>(`/api/v1/datasets/${id}/groupby?${params.toString()}`);
+    return request<GroupByData>(`/api/v1/datasets/${id}/groupby?${params.toString()}`, {}, signal);
   },
 
   async getHypothesisTest(
@@ -151,26 +188,47 @@ export const api = {
       segment_b: string;
       metric_column: string;
       confidence_level?: number;
-    }
+    },
+    signal?: AbortSignal
   ): Promise<HypothesisTestData> {
-    return request<HypothesisTestData>(`/api/v1/datasets/${id}/hypothesis`, {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
+    return request<HypothesisTestData>(
+      `/api/v1/datasets/${id}/hypothesis`,
+      {
+        method: "POST",
+        body: JSON.stringify(req),
+      },
+      signal
+    );
   },
 
-  async previewClean(id: string, req: CleaningRequest): Promise<CleanPreviewData> {
-    return request<CleanPreviewData>(`/api/v1/datasets/${id}/clean/preview`, {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
+  async previewClean(
+    id: string,
+    req: CleaningRequest,
+    signal?: AbortSignal
+  ): Promise<CleanPreviewData> {
+    return request<CleanPreviewData>(
+      `/api/v1/datasets/${id}/clean/preview`,
+      {
+        method: "POST",
+        body: JSON.stringify(req),
+      },
+      signal
+    );
   },
 
-  async applyClean(id: string, req: CleaningRequest): Promise<DatasetInfo> {
-    return request<DatasetInfo>(`/api/v1/datasets/${id}/clean`, {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
+  async applyClean(
+    id: string,
+    req: CleaningRequest,
+    signal?: AbortSignal
+  ): Promise<DatasetInfo> {
+    return request<DatasetInfo>(
+      `/api/v1/datasets/${id}/clean`,
+      {
+        method: "POST",
+        body: JSON.stringify(req),
+      },
+      signal
+    );
   },
 
   async getForecast(
@@ -179,43 +237,84 @@ export const api = {
     dimension?: string,
     horizon: number = 30,
     model: string = "linear",
-    confidence: number = 0.95
+    confidence: number = 0.95,
+    signal?: AbortSignal
   ): Promise<ForecastData> {
     let url = `/api/v1/datasets/${id}/forecast?horizon=${horizon}&metric=${encodeURIComponent(
       metric
     )}&model_type=${encodeURIComponent(model)}&confidence=${confidence}`;
     if (dimension) url += `&dimension=${encodeURIComponent(dimension)}`;
-    return request<ForecastData>(url);
+    return request<ForecastData>(url, {}, signal);
   },
 
   async getAnomalies(
     id: string,
     threshold: number = 2.0,
-    method: string = "z_score"
+    method: string = "z_score",
+    signal?: AbortSignal
   ): Promise<AnomaliesData> {
     return request<AnomaliesData>(
-      `/api/v1/datasets/${id}/anomalies?threshold=${threshold}&method=${encodeURIComponent(method)}`
+      `/api/v1/datasets/${id}/anomalies?threshold=${threshold}&method=${encodeURIComponent(method)}`,
+      {},
+      signal
     );
   },
 
-  async simulateWhatIf(id: string, req: WhatIfRequest): Promise<WhatIfData> {
-    return request<WhatIfData>(`/api/v1/datasets/${id}/whatif`, {
-      method: "POST",
-      body: JSON.stringify(req),
-    });
+  async simulateWhatIf(
+    id: string,
+    req: WhatIfRequest,
+    signal?: AbortSignal
+  ): Promise<WhatIfData> {
+    return request<WhatIfData>(
+      `/api/v1/datasets/${id}/whatif`,
+      {
+        method: "POST",
+        body: JSON.stringify(req),
+      },
+      signal
+    );
   },
 
-  async sendAIChat(message: string, datasetId?: string): Promise<AIChatResponse> {
-    return request<AIChatResponse>("/api/v1/ai/chat", {
-      method: "POST",
-      body: JSON.stringify({ message, dataset_id: datasetId }),
-    });
+  async sendAIChat(
+    message: string,
+    datasetId?: string,
+    signal?: AbortSignal
+  ): Promise<AIChatResponse> {
+    return request<AIChatResponse>(
+      "/api/v1/ai/chat",
+      {
+        method: "POST",
+        body: JSON.stringify({ message, dataset_id: datasetId }),
+      },
+      signal
+    );
   },
 
-  async generateReport(id: string, title?: string, horizon: number = 30): Promise<ReportData> {
-    return request<ReportData>("/api/v1/reports/generate", {
-      method: "POST",
-      body: JSON.stringify({ dataset_id: id, title, forecast_horizon: horizon }),
-    });
+  async generateReport(
+    id: string,
+    title?: string,
+    horizon: number = 30,
+    signal?: AbortSignal
+  ): Promise<ReportData> {
+    return request<ReportData>(
+      "/api/v1/reports/generate",
+      {
+        method: "POST",
+        body: JSON.stringify({ dataset_id: id, title, forecast_horizon: horizon }),
+      },
+      signal
+    );
+  },
+
+  async listJobs(page: number = 1, signal?: AbortSignal): Promise<JobInfo[]> {
+    return request<JobInfo[]>(`/api/v1/jobs?page=${page}`, {}, signal);
+  },
+
+  async getJob(jobId: string, signal?: AbortSignal): Promise<JobInfo> {
+    return request<JobInfo>(`/api/v1/jobs/${jobId}`, {}, signal);
+  },
+
+  async cancelJob(jobId: string, signal?: AbortSignal): Promise<JobInfo> {
+    return request<JobInfo>(`/api/v1/jobs/${jobId}/cancel`, { method: "POST" }, signal);
   },
 };

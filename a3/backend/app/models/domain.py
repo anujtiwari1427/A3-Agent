@@ -137,3 +137,42 @@ class AuditLog(Base):
         Index("ix_audit_org_created", "org_id", "created_at"),
         Index("ix_audit_user_created", "user_id", "created_at"),
     )
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    org_id = Column(String, ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    job_type = Column(String(50), nullable=False)
+    status = Column(String(20), default="QUEUED", nullable=False)  # QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED
+    progress_pct = Column(Integer, default=0)
+    payload_json = Column(Text, nullable=True)
+    result_json = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    __table_args__ = (
+        Index("ix_jobs_org_created", "org_id", "created_at"),
+        Index("ix_jobs_org_status", "org_id", "status"),
+    )
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    org_id = Column(String, ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    key_prefix = Column(String(16), nullable=False)
+    key_hash = Column(String(64), unique=True, nullable=False)
+    role = Column(String(20), default="analyst", nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    last_used_at = Column(DateTime, nullable=True)
+    __table_args__ = (
+        Index("ix_api_keys_hash", "key_hash"),
+        Index("ix_api_keys_org", "org_id", "is_active"),
+    )
+

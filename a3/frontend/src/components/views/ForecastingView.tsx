@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { AnalyticsData, DatasetInfo, ForecastData } from "../../lib/types";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
 import { api } from "../../lib/api";
 import { useToast } from "../layout/Toast";
 
@@ -16,8 +15,18 @@ interface ForecastingViewProps {
 export function ForecastingView({ dataset, analytics }: ForecastingViewProps) {
   const toast = useToast();
 
+  const columns = analytics?.columns || [];
+  const numCols = columns.filter((c) => c.type === "numeric");
+  const dimCols = columns.filter((c) => c.type !== "numeric");
+
+  const defaultMetric = numCols.length > 0 ? numCols[0].name : "";
+  const defaultDimension = dimCols.length > 0 ? dimCols[0].name : (columns.length > 0 ? columns[0].name : "");
+
   const [metric, setMetric] = useState<string>("");
   const [dimension, setDimension] = useState<string>("");
+  const activeMetric = metric || defaultMetric;
+  const activeDimension = dimension || defaultDimension;
+
   const [horizon, setHorizon] = useState<number>(30);
   const [modelType, setModelType] = useState<"linear" | "exponential" | "moving_average">("linear");
   const [confidence, setConfidence] = useState<number>(0.95);
@@ -25,33 +34,35 @@ export function ForecastingView({ dataset, analytics }: ForecastingViewProps) {
   const [forecast, setForecast] = useState<ForecastData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const columns = analytics?.columns || [];
-  const numCols = columns.filter((c) => c.type === "numeric");
-  const dimCols = columns.filter((c) => c.type !== "numeric");
-
   useEffect(() => {
-    if (numCols.length > 0 && !metric) setMetric(numCols[0].name);
-    if (dimCols.length > 0 && !dimension) setDimension(dimCols[0].name);
-  }, [analytics]);
+    let cancelled = false;
+    if (!dataset || !activeMetric) return;
 
-  useEffect(() => {
-    if (dataset && metric) {
-      loadForecastData();
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await api.getForecast(dataset!.id, activeMetric, activeDimension || undefined, horizon, modelType, confidence);
+        if (!cancelled) {
+          setForecast(res);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "Failed to calculate forecast projection";
+          toast.error(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  }, [dataset, metric, dimension, horizon, modelType, confidence]);
 
-  async function loadForecastData() {
-    if (!dataset || !metric) return;
-    setLoading(true);
-    try {
-      const res = await api.getForecast(dataset.id, metric, dimension, horizon, modelType, confidence);
-      setForecast(res);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to calculate forecast projection");
-    } finally {
-      setLoading(false);
-    }
-  }
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataset, activeMetric, activeDimension, horizon, modelType, confidence, toast]);
 
   if (!dataset) {
     return <div className="p-12 text-center text-xs text-gray-500">Please select a time-series dataset to run forecasting.</div>;
@@ -111,8 +122,8 @@ export function ForecastingView({ dataset, analytics }: ForecastingViewProps) {
         <div className="flex items-center gap-2 text-xs">
           <span className="text-gray-400 font-medium">Target Metric:</span>
           <select
-            value={metric}
-            onChange={(e) => setMetric(e.target.value)}
+            value={activeMetric}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMetric(e.target.value)}
             className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[var(--accent-emerald)]"
           >
             {numCols.map((c) => (
@@ -127,8 +138,8 @@ export function ForecastingView({ dataset, analytics }: ForecastingViewProps) {
         <div className="flex items-center gap-2 text-xs">
           <span className="text-gray-400 font-medium">Date Dimension:</span>
           <select
-            value={dimension}
-            onChange={(e) => setDimension(e.target.value)}
+            value={activeDimension}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDimension(e.target.value)}
             className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[var(--accent-emerald)]"
           >
             {columns.map((c) => (
@@ -162,7 +173,7 @@ export function ForecastingView({ dataset, analytics }: ForecastingViewProps) {
           <span className="text-gray-400 font-medium">Model:</span>
           <select
             value={modelType}
-            onChange={(e: any) => setModelType(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setModelType(e.target.value as "linear" | "exponential" | "moving_average")}
             className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[var(--accent-emerald)]"
           >
             <option value="linear" className="bg-[#0b0f19]">Adaptive Trend Regression</option>
@@ -199,6 +210,7 @@ export function ForecastingView({ dataset, analytics }: ForecastingViewProps) {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {loading && <Badge variant="blue">Calculating...</Badge>}
               <span className="flex items-center gap-1.5 text-[11px] text-gray-300">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" /> Historical
               </span>

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { ViewType, DatasetInfo, UserInfo, AnalyticsData } from "../../lib/types";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/layout/Toast";
@@ -23,6 +24,7 @@ import { AICopilotView } from "../../components/views/AICopilotView";
 import { ReportsView } from "../../components/views/ReportsView";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +34,8 @@ export default function DashboardPage() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
+  const [loadedAnalyticsId, setLoadedAnalyticsId] = useState<string>("");
+  const loadingAnalytics = Boolean(selectedDatasetId) && loadedAnalyticsId !== selectedDatasetId;
 
   // Upload Modal State
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -40,11 +43,31 @@ export default function DashboardPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingSample, setIsLoadingSample] = useState(false);
 
+  const loadDatasetsList = useCallback(async (targetSelectId?: string) => {
+    try {
+      const list = await api.listDatasets();
+      setDatasets(list);
+
+      if (list.length > 0) {
+        setSelectedDatasetId((prevSelected) => {
+          if (targetSelectId) return targetSelectId;
+          if (prevSelected && list.some((d) => d.id === prevSelected)) return prevSelected;
+          return list[0].id;
+        });
+      } else {
+        setSelectedDatasetId("");
+        setAnalytics(null);
+      }
+    } catch {
+      toast.error("Failed to retrieve dataset records.");
+    }
+  }, [toast]);
+
   // 1. Initial Authentication and Datasets Loading
   useEffect(() => {
     const token = localStorage.getItem("a3_token");
     if (!token) {
-      window.location.href = "/";
+      router.push("/");
       return;
     }
 
@@ -57,55 +80,41 @@ export default function DashboardPage() {
       .catch(() => {
         localStorage.removeItem("a3_token");
         localStorage.removeItem("a3_user");
-        window.location.href = "/";
+        router.push("/");
       });
-  }, []);
-
-  async function loadDatasetsList(targetSelectId?: string) {
-    try {
-      const list = await api.listDatasets();
-      setDatasets(list);
-
-      if (list.length > 0) {
-        const nextId =
-          targetSelectId ||
-          (selectedDatasetId && list.some((d) => d.id === selectedDatasetId)
-            ? selectedDatasetId
-            : list[0].id);
-        setSelectedDatasetId(nextId);
-      } else {
-        setSelectedDatasetId("");
-        setAnalytics(null);
-      }
-    } catch {
-      toast.error("Failed to retrieve dataset records.");
-    }
-  }
+  }, [loadDatasetsList, router]);
 
   // 2. Load statistical profile when active dataset changes
   useEffect(() => {
     if (!selectedDatasetId) {
-      setAnalytics(null);
       return;
     }
 
-    setLoadingAnalytics(true);
+    let isMounted = true;
     api
       .getAnalytics(selectedDatasetId)
       .then((data) => {
-        setAnalytics(data);
+        if (isMounted) {
+          setAnalytics(data);
+          setLoadedAnalyticsId(selectedDatasetId);
+        }
       })
       .catch(() => {
-        // quiet fallback
-      })
-      .finally(() => setLoadingAnalytics(false));
+        if (isMounted) {
+          setLoadedAnalyticsId(selectedDatasetId);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedDatasetId]);
 
   // Handle Logout
   function handleLogout() {
     localStorage.removeItem("a3_token");
     localStorage.removeItem("a3_user");
-    window.location.href = "/";
+    router.push("/");
   }
 
   // Handle 1-Click Sample Dataset Injection
@@ -116,8 +125,9 @@ export default function DashboardPage() {
       toast.success(`Injected sample dataset: ${newDataset.name}`);
       await loadDatasetsList(newDataset.id);
       setCurrentView("overview");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to inject sample dataset");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to inject sample dataset";
+      toast.error(msg);
     } finally {
       setIsLoadingSample(false);
     }
@@ -136,8 +146,9 @@ export default function DashboardPage() {
       setSelectedFile(null);
       await loadDatasetsList(newDataset.id);
       setCurrentView("overview");
-    } catch (err: any) {
-      toast.error(err.message || "Upload failed");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      toast.error(msg);
     } finally {
       setIsUploading(false);
     }

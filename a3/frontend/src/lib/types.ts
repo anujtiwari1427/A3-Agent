@@ -235,9 +235,16 @@ export interface WhatIfVariableImpact {
   contribution_to_target: number;
 }
 
-export interface WhatIfRequest extends JsonObject {
-  target_metric?: string;
+export interface WhatIfDriverVariable {
+  variable_name: string;
+  percentage_change: number;
+}
+
+export interface WhatIfRequest {
+  target_metric: string;
   scenario_name?: string;
+  formula_type?: "linear" | "multiplicative" | "elasticity";
+  driver_variables?: WhatIfDriverVariable[];
 }
 
 export interface WhatIfData {
@@ -260,6 +267,12 @@ export interface AIInsight {
   detail: string;
   confidence: number;
   metric_reference?: string;
+}
+
+export interface AIChatRequest {
+  message: string;
+  dataset_id?: string | null;
+  conversation_id?: string | null;
 }
 
 export interface AIChatResponse {
@@ -304,4 +317,41 @@ export interface ReportData {
   sections: ReportSection[];
   markdown_content: string;
   json_structure: JsonObject;
+}
+
+export interface APIError {
+  detail: string;
+  error_code?: string;
+  status_code?: number;
+}
+
+export type DatasetRow = Record<string, JsonValue>;
+
+export type CleaningResponse = CleanPreviewData & {
+  success: boolean;
+  new_dataset_id?: string | null;
+};
+
+export type AnalyticsResponse = AnalyticsData;
+export type ForecastResponse = ForecastData;
+export type AnomalyResponse = AnomaliesData;
+export type WhatIfResponse = WhatIfData;
+export type ReportResponse = ReportData;
+
+export interface ChartData {
+  labels: string[];
+  values: number[];
+  series_name?: string;
+}
+
+export interface JobInfo {
+  id: string;
+  org_id: string;
+  job_type: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  progress_pct: number;
+  result?: JsonValue;
+  error_message?: string | null;
+  created_at: string;
+  updated_at?: string;
 }

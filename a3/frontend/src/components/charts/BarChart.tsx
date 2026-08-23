@@ -46,8 +46,6 @@ export function BarChart({
   }
 
   if (horizontal) {
-    const rowHeight = 32;
-    const computedH = Math.max(height, values.length * rowHeight + 40);
     return (
       <div className="w-full overflow-hidden">
         {title && (

@@ -57,87 +57,89 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
   const catCols = analytics?.columns?.filter((c) => c.type !== "numeric") || [];
 
   useEffect(() => {
+    let cancelled = false;
     if (!dataset) return;
-    loadCorrelationsData(dataset.id);
 
-    if (numCols.length >= 2) {
-      setFeatureCol(numCols[0].name);
-      setTargetCol(numCols[1].name);
-    } else if (numCols.length === 1) {
-      setFeatureCol(numCols[0].name);
-      setTargetCol(numCols[0].name);
-    }
-
-    if (catCols.length > 0) {
-      setGroupCol(catCols[0].name);
-      setHypoGroupCol(catCols[0].name);
-      const topVals = analytics?.summary[catCols[0].name]?.top_values || [];
-      if (topVals.length >= 2) {
-        setHypoSegA(topVals[0].value);
-        setHypoSegB(topVals[1].value);
+    async function load() {
+      setLoadingCorrelations(true);
+      try {
+        const res = await api.getCorrelations(dataset!.id);
+        if (!cancelled) {
+          setCorrelations(res);
+        }
+      } catch {
+        // fallback
+      } finally {
+        if (!cancelled) {
+          setLoadingCorrelations(false);
+        }
       }
     }
-    if (numCols.length > 0) {
-      setMetricCol(numCols[0].name);
-      setHypoMetricCol(numCols[0].name);
-    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [dataset]);
 
-  async function loadCorrelationsData(id: string) {
-    setLoadingCorrelations(true);
-    try {
-      const res = await api.getCorrelations(id);
-      setCorrelations(res);
-    } catch {
-      // fallback
-    } finally {
-      setLoadingCorrelations(false);
-    }
-  }
+  // Derived initial defaults
+  const activeFeatureCol = featureCol || (numCols.length > 0 ? numCols[0].name : "");
+  const activeTargetCol = targetCol || (numCols.length > 1 ? numCols[1].name : activeFeatureCol);
+  const activeGroupCol = groupCol || (catCols.length > 0 ? catCols[0].name : "");
+  const activeMetricCol = metricCol || (numCols.length > 0 ? numCols[0].name : "");
+  const activeHypoGroupCol = hypoGroupCol || (catCols.length > 0 ? catCols[0].name : "");
+  const topCatVals = activeHypoGroupCol && analytics?.summary[activeHypoGroupCol]?.top_values ? analytics.summary[activeHypoGroupCol].top_values : [];
+  const activeHypoSegA = hypoSegA || (topCatVals.length > 0 ? topCatVals[0].value : "");
+  const activeHypoSegB = hypoSegB || (topCatVals.length > 1 ? topCatVals[1].value : "");
+  const activeHypoMetricCol = hypoMetricCol || (numCols.length > 0 ? numCols[0].name : "");
 
   async function handleRunRegression() {
-    if (!dataset || !featureCol || !targetCol) return;
+    if (!dataset || !activeFeatureCol || !activeTargetCol) return;
     setLoadingRegression(true);
     try {
-      const res = await api.getRegression(dataset.id, featureCol, targetCol);
+      const res = await api.getRegression(dataset.id, activeFeatureCol, activeTargetCol);
       setRegression(res);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to solve linear regression");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to solve linear regression";
+      toast.error(message);
     } finally {
       setLoadingRegression(false);
     }
   }
 
   async function handleRunGroupBy() {
-    if (!dataset || !groupCol || !metricCol) return;
+    if (!dataset || !activeGroupCol || !activeMetricCol) return;
     setLoadingGroupBy(true);
     try {
-      const res = await api.getGroupBy(dataset.id, groupCol, [metricCol]);
+      const res = await api.getGroupBy(dataset.id, activeGroupCol, [activeMetricCol]);
       setGroupByData(res);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to compute group-by aggregations");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to compute group-by aggregations";
+      toast.error(message);
     } finally {
       setLoadingGroupBy(false);
     }
   }
 
   async function handleRunHypothesis() {
-    if (!dataset || !hypoGroupCol || !hypoSegA || !hypoSegB || !hypoMetricCol) {
+    if (!dataset || !activeHypoGroupCol || !activeHypoSegA || !activeHypoSegB || !activeHypoMetricCol) {
       toast.error("Please specify both segments and a metric to test.");
       return;
     }
     setLoadingHypo(true);
     try {
       const res = await api.getHypothesisTest(dataset.id, {
-        group_column: hypoGroupCol,
-        segment_a: hypoSegA,
-        segment_b: hypoSegB,
-        metric_column: hypoMetricCol,
+        group_column: activeHypoGroupCol,
+        segment_a: activeHypoSegA,
+        segment_b: activeHypoSegB,
+        metric_column: activeHypoMetricCol,
         confidence_level: hypoConf,
       });
       setHypoResult(res);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to compute hypothesis test");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to compute hypothesis test";
+      toast.error(message);
     } finally {
       setLoadingHypo(false);
     }
@@ -289,7 +291,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-400 font-medium">Feature (X):</span>
               <select
-                value={featureCol}
+                value={activeFeatureCol}
                 onChange={(e) => setFeatureCol(e.target.value)}
                 className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
               >
@@ -304,7 +306,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-400 font-medium">Target (Y):</span>
               <select
-                value={targetCol}
+                value={activeTargetCol}
                 onChange={(e) => setTargetCol(e.target.value)}
                 className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
               >
@@ -375,7 +377,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-400 font-medium">Group Dimension:</span>
               <select
-                value={groupCol}
+                value={activeGroupCol}
                 onChange={(e) => setGroupCol(e.target.value)}
                 className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
               >
@@ -390,7 +392,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-400 font-medium">Aggregate Metric:</span>
               <select
-                value={metricCol}
+                value={activeMetricCol}
                 onChange={(e) => setMetricCol(e.target.value)}
                 className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
               >
@@ -412,8 +414,8 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
               <Card>
                 <BarChart
                   labels={groupByData.buckets.map((b) => b.group_key)}
-                  values={groupByData.buckets.map((b) => b.aggregates[`${metricCol}_sum`] || b.count)}
-                  title={`Segment Sum: ${metricCol} by ${groupCol}`}
+                  values={groupByData.buckets.map((b) => b.aggregates[`${activeMetricCol}_sum`] || b.count)}
+                  title={`Segment Sum: ${activeMetricCol} by ${activeGroupCol}`}
                   color="emerald"
                 />
               </Card>
@@ -421,8 +423,8 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
               <Card>
                 <BarChart
                   labels={groupByData.buckets.map((b) => b.group_key)}
-                  values={groupByData.buckets.map((b) => b.aggregates[`${metricCol}_avg`] || 0)}
-                  title={`Segment Average: ${metricCol} by ${groupCol}`}
+                  values={groupByData.buckets.map((b) => b.aggregates[`${activeMetricCol}_avg`] || 0)}
+                  title={`Segment Average: ${activeMetricCol} by ${activeGroupCol}`}
                   color="blue"
                   horizontal={true}
                 />
@@ -439,7 +441,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-400 font-medium">Dimension:</span>
               <select
-                value={hypoGroupCol}
+                value={activeHypoGroupCol}
                 onChange={(e) => {
                   setHypoGroupCol(e.target.value);
                   const topVals = analytics?.summary[e.target.value]?.top_values || [];
@@ -462,7 +464,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
               <span className="text-gray-400 font-medium">Segment A:</span>
               <input
                 type="text"
-                value={hypoSegA}
+                value={activeHypoSegA}
                 onChange={(e) => setHypoSegA(e.target.value)}
                 placeholder="e.g. Technology"
                 className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white w-28"
@@ -473,7 +475,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
               <span className="text-gray-400 font-medium">Segment B:</span>
               <input
                 type="text"
-                value={hypoSegB}
+                value={activeHypoSegB}
                 onChange={(e) => setHypoSegB(e.target.value)}
                 placeholder="e.g. Furniture"
                 className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white w-28"
@@ -483,7 +485,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
             <div className="flex items-center gap-2 text-xs">
               <span className="text-gray-400 font-medium">Metric (Y):</span>
               <select
-                value={hypoMetricCol}
+                value={activeHypoMetricCol}
                 onChange={(e) => setHypoMetricCol(e.target.value)}
                 className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
               >
@@ -509,7 +511,7 @@ export function AnalyticsStudio({ dataset, analytics }: AnalyticsStudioProps) {
             </div>
 
             <Button variant="primary" size="sm" onClick={handleRunHypothesis} loading={loadingHypo}>
-              Run Welch's T-Test
+              Run Welch&apos;s T-Test
             </Button>
           </Card>
 

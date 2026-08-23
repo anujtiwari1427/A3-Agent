@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Mode = "local" | "cloud" | null;
 
@@ -77,7 +78,6 @@ function Logo() {
    Mode selection card
    ────────────────────────────────────────────────────── */
 function ModeCard({
-  mode,
   title,
   icon,
   description,
@@ -171,6 +171,7 @@ function ModeCard({
    Login form (appears after mode selection)
    ────────────────────────────────────────────────────── */
 function LoginForm({ mode }: { mode: "local" | "cloud" }) {
+  const router = useRouter();
   const isCloud = mode === "cloud";
   const accentColor = isCloud ? "var(--accent-blue)" : "var(--accent-emerald)";
 
@@ -211,7 +212,7 @@ function LoginForm({ mode }: { mode: "local" | "cloud" }) {
       // Store token & user info, then redirect
       localStorage.setItem("a3_token", data.access_token);
       localStorage.setItem("a3_user", JSON.stringify(data.user));
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } catch {
       setError("Cannot reach the server. Is the backend running?");
     } finally {
