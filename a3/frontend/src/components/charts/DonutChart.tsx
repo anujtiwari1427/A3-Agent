@@ -35,39 +35,42 @@ export function DonutChart({
   const center = size / 2;
   const innerRadius = isPie ? 0.01 : radius * innerRadiusRatio;
 
-  let accumulatedAngle = 0;
-  const slices = data.map((item, index) => {
-    const sliceAngle = (item.value / total) * 360;
-    const startAngle = accumulatedAngle;
-    const endAngle = accumulatedAngle + sliceAngle;
-    accumulatedAngle += sliceAngle;
+  const slices = data.reduce<Array<DonutSlice & { pathData: string; color: string; pct: string; index: number }>>(
+    (result, item, index) => {
+      const startAngle = result.length === 0 ? 0 : result[result.length - 1].endAngle;
+      const sliceAngle = (item.value / total) * 360;
+      const endAngle = startAngle + sliceAngle;
 
-    const startRad = (startAngle - 90) * (Math.PI / 180);
-    const endRad = (endAngle - 90) * (Math.PI / 180);
+      const startRad = (startAngle - 90) * (Math.PI / 180);
+      const endRad = (endAngle - 90) * (Math.PI / 180);
 
-    const x1 = center + radius * Math.cos(startRad);
-    const y1 = center + radius * Math.sin(startRad);
-    const x2 = center + radius * Math.cos(endRad);
-    const y2 = center + radius * Math.sin(endRad);
+      const x1 = center + radius * Math.cos(startRad);
+      const y1 = center + radius * Math.sin(startRad);
+      const x2 = center + radius * Math.cos(endRad);
+      const y2 = center + radius * Math.sin(endRad);
 
-    const ix1 = center + innerRadius * Math.cos(endRad);
-    const iy1 = center + innerRadius * Math.sin(endRad);
-    const ix2 = center + innerRadius * Math.cos(startRad);
-    const iy2 = center + innerRadius * Math.sin(startRad);
+      const ix1 = center + innerRadius * Math.cos(endRad);
+      const iy1 = center + innerRadius * Math.sin(endRad);
+      const ix2 = center + innerRadius * Math.cos(startRad);
+      const iy2 = center + innerRadius * Math.sin(startRad);
 
-    const largeArc = sliceAngle > 180 ? 1 : 0;
-    let pathData = "";
-    if (isPie) {
-      pathData = `M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-    } else {
-      pathData = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${ix2} ${iy2} Z`;
-    }
+      const largeArc = sliceAngle > 180 ? 1 : 0;
+      const pathData = isPie
+        ? `M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`
+        : `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${ix2} ${iy2} Z`;
 
-    const color = PALETTE[index % PALETTE.length];
-    const pct = ((item.value / total) * 100).toFixed(1);
-
-    return { ...item, pathData, color, pct, index };
-  });
+      result.push({
+        ...item,
+        pathData,
+        color: PALETTE[index % PALETTE.length],
+        pct: ((item.value / total) * 100).toFixed(1),
+        index,
+        endAngle,
+      } as DonutSlice & { pathData: string; color: string; pct: string; index: number; endAngle: number });
+      return result;
+    },
+    []
+  ).map(({ endAngle: _endAngle, ...slice }) => slice);
 
   return (
     <div className="flex flex-col items-center">
@@ -113,7 +116,6 @@ export function DonutChart({
           )}
         </div>
 
-        {/* Legend */}
         <div className="space-y-1.5 max-h-48 overflow-y-auto pr-2">
           {slices.map((s) => (
             <div
