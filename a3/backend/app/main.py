@@ -1,6 +1,7 @@
 """A3 Platform Backend — FastAPI application entrypoint."""
 
 import logging
+import secrets
 import uuid
 from contextlib import asynccontextmanager
 
@@ -29,17 +30,13 @@ logger = logging.getLogger(__name__)
 
 
 def _initialize_database() -> None:
-    """Create tables for local-first development.
-
-    Production deployments should use Alembic migrations instead of relying on
-    startup-time table creation.
-    """
+    """Create tables for local-first development; cloud uses migrations."""
     if settings.MODE == "local":
         Base.metadata.create_all(bind=engine)
 
 
 def _seed_local_admin() -> None:
-    """Create the demo local account only in explicit local mode."""
+    """Create a local-only admin with an explicit or one-time random password."""
     if settings.MODE != "local":
         return
 
@@ -59,10 +56,11 @@ def _seed_local_admin() -> None:
             db.add(org)
             db.flush()
 
+        password = settings.LOCAL_ADMIN_PASSWORD or secrets.token_urlsafe(16)
         admin = User(
             id=str(uuid.uuid4()),
-            email="admin",
-            hashed_password=hash_password("admin123"),
+            email=settings.LOCAL_ADMIN_EMAIL,
+            hashed_password=hash_password(password),
             full_name="Local Administrator",
             role="admin",
             org_id=org.id,
@@ -70,9 +68,7 @@ def _seed_local_admin() -> None:
         )
         db.add(admin)
         db.commit()
-        logger.warning(
-            "Local demo account created. Change the demo password before exposing this instance."
-        )
+        logger.warning("Local admin created: email=%s password=%s", settings.LOCAL_ADMIN_EMAIL, password)
     finally:
         db.close()
 
@@ -87,11 +83,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="A3 Intelligence & Analytics Platform API",
     description="Modular enterprise analytics, forecasting, anomaly detection and AI Copilot API",
-    version="2.2.0",
+    version="2.3.0",
     lifespan=lifespan,
 )
 
-# Keep CORS explicit and environment-driven. Never use '*' with credentials.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(dict.fromkeys(settings.ALLOWED_ORIGINS)),
