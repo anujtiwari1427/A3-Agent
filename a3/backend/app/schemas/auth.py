@@ -1,16 +1,27 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: Optional[str] = None
+    email: EmailStr
+    password: str = Field(min_length=12, max_length=128)
+    full_name: Optional[str] = Field(default=None, max_length=100)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
 
 
 class TokenResponse(BaseModel):
@@ -20,6 +31,7 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str
     email: str
     full_name: Optional[str] = None
