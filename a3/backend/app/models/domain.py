@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, Integer, BigInteger, ForeignKey, DateTime, Text, Float
+from sqlalchemy import Column, String, Boolean, Integer, BigInteger, ForeignKey, DateTime, Text, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..core.database import Base
@@ -49,13 +49,18 @@ class Dataset(Base):
     health_score = Column(Integer, default=100)
     is_cleaned = Column(Boolean, default=False)
     parent_dataset_id = Column(String, nullable=True)
-    cleaning_log = Column(Text, nullable=True)  # JSON-encoded array of applied cleaning operations
+    cleaning_log = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     org = relationship("Org", back_populates="datasets")
     uploader = relationship("User", back_populates="datasets")
     reports = relationship("Report", back_populates="dataset", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_datasets_org_created", "org_id", "created_at"),
+        Index("ix_datasets_org_name", "org_id", "name"),
+    )
 
 
 class Report(Base):
