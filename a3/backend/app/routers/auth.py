@@ -1,4 +1,4 @@
-"""Authentication and Identity endpoints with personal workspace isolation."""
+"""Authentication and Identity endpoints with Google OAuth and personal workspace isolation."""
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,12 +11,15 @@ from ..models.domain import Org, User
 from ..schemas.auth import (
     RegisterRequest,
     LoginRequest,
+    GoogleLoginRequest,
+    GoogleConfigResponse,
     VerifyLicenseRequest,
     VerifyLicenseResponse,
     TokenResponse,
     UserResponse,
 )
 from ..services.audit_service import record_audit
+from ..services.google_auth_service import verify_google_token, authenticate_or_register_google_user
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -30,6 +33,35 @@ def _user_dict(user: User) -> dict:
         "org_id": user.org_id,
         "mode": settings.MODE,
     }
+
+
+@router.get("/google/config", response_model=GoogleConfigResponse)
+def get_google_auth_config():
+    """Return public Google OAuth Client ID for frontend GIS initialization."""
+    return GoogleConfigResponse(client_id=settings.GOOGLE_CLIENT_ID)
+
+
+@router.post("/google", response_model=TokenResponse)
+def google_sign_in(body: GoogleLoginRequest, db: DBSession = Depends(get_db)):
+    """Authenticate or register user via Google Identity Services / ID Token."""
+    try:
+        google_profile = verify_google_token(body.credential)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Google authentication failed: {str(e)}",
+        )
+
+    try:
+        user = authenticate_or_register_google_user(db, google_profile)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+
+    token = create_access_token({"sub": user.id, "role": user.role, "org_id": user.org_id})
+    return TokenResponse(access_token=token, user=_user_dict(user))
 
 
 @router.post("/verify-license", response_model=VerifyLicenseResponse)
@@ -124,6 +156,21 @@ def login(body: LoginRequest, db: DBSession = Depends(get_db)):
     db.commit()
     token = create_access_token({"sub": user.id, "role": user.role, "org_id": user.org_id})
     return TokenResponse(access_token=token, user=_user_dict(user))
+
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user), db: DBSession = Depends(get_db)):
+    """Terminate authenticated session and record audit event."""
+    record_audit(
+        db,
+        org_id=current_user.org_id,
+        user_id=current_user.id,
+        action="user.logout",
+        resource_type="auth_session",
+        resource_id=current_user.id,
+    )
+    db.commit()
+    return {"message": "Logged out successfully"}
 
 
 @router.get("/me", response_model=UserResponse)

@@ -26,6 +26,14 @@ class LoginRequest(BaseModel):
         return str(value).strip().lower()
 
 
+class GoogleLoginRequest(BaseModel):
+    credential: str = Field(min_length=10, description="Google ID Token / Credential")
+
+
+class GoogleConfigResponse(BaseModel):
+    client_id: Optional[str] = None
+
+
 class VerifyLicenseRequest(BaseModel):
     license_key: str = Field(min_length=1, max_length=128)
 

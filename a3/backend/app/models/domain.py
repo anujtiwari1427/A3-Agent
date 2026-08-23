@@ -29,6 +29,7 @@ class User(Base):
     org = relationship("Org", back_populates="users")
     sessions = relationship("Session", back_populates="user")
     datasets = relationship("Dataset", back_populates="uploader")
+    identities = relationship("UserIdentity", back_populates="user", cascade="all, delete-orphan")
     __table_args__ = (
         Index("ix_users_org_id", "org_id"),
     )
@@ -185,4 +186,20 @@ class ApiKey(Base):
         Index("ix_api_keys_hash", "key_hash"),
         Index("ix_api_keys_org", "org_id", "is_active"),
     )
+
+
+class UserIdentity(Base):
+    __tablename__ = "user_identities"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    provider = Column(String(50), nullable=False)  # e.g., "google", "github"
+    provider_subject = Column(String(255), nullable=False)  # Provider's stable subject ID (Google sub)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    user = relationship("User", back_populates="identities")
+    __table_args__ = (
+        Index("ix_user_identities_user_id", "user_id"),
+        Index("ix_user_identities_provider_sub", "provider", "provider_subject", unique=True),
+    )
+
 

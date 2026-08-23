@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../lib/api";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 
 type Mode = "local" | "cloud" | null;
 
@@ -169,7 +170,7 @@ function ModeCard({
 }
 
 /* ──────────────────────────────────────────────────────
-   Auth Form: Multi-User Isolated Personal & Cloud Workspaces
+   Auth Form: Google Sign-In & Multi-User Workspaces
    ────────────────────────────────────────────────────── */
 function LoginForm({ mode }: { mode: "local" | "cloud" }) {
   const router = useRouter();
@@ -257,6 +258,25 @@ function LoginForm({ mode }: { mode: "local" | "cloud" }) {
           </div>
         )}
 
+        {/* 1. Primary Authentication: Google Sign-In */}
+        <div className="mb-6">
+          <GoogleSignInButton
+            text={isRegister ? "signup_with" : "continue_with"}
+            onError={(msg) => setError(msg)}
+            onSuccess={() => router.push("/dashboard")}
+          />
+        </div>
+
+        {/* 2. Divider */}
+        <div className="relative flex items-center justify-center mb-6">
+          <div className="border-t border-[var(--border-subtle)] w-full" />
+          <span className="bg-[#12141a] px-3 text-[11px] font-mono text-[var(--text-muted)] tracking-wider shrink-0 uppercase">
+            Or continue with email
+          </span>
+          <div className="border-t border-[var(--border-subtle)] w-full" />
+        </div>
+
+        {/* 3. Email & Password Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {isRegister && (
             <div>
@@ -309,6 +329,7 @@ function LoginForm({ mode }: { mode: "local" | "cloud" }) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              minLength={6}
               className="w-full px-4 py-3 rounded-[var(--radius-sm)] bg-[var(--bg-glass)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-accent)] transition-colors duration-300 text-sm"
             />
           </div>
@@ -397,9 +418,9 @@ export default function Home() {
           icon="🔒"
           description="Runs on your machine with strict personal workspace isolation."
           features={[
+            "Google Sign-In & Email options",
             "Private personal workspace per user",
             "Owner-enforced data privacy",
-            "100% offline-first local computation",
             "Direct partitioned local PC storage",
           ]}
           accentColor="var(--accent-emerald)"
@@ -413,9 +434,9 @@ export default function Home() {
           icon="☁️"
           description="Collaborate with your team from anywhere."
           features={[
+            "Google & SSO authentication",
             "Multi-tenant organizations",
             "Shared datasets & dashboards",
-            "Fast cloud inference",
             "Role-based team access",
           ]}
           accentColor="var(--accent-blue)"
@@ -445,7 +466,7 @@ export default function Home() {
       >
         <p>
           One product. Two deployment realities.{" "}
-          <span className="text-[var(--accent-purple)]">a3 v2.5</span>
+          <span className="text-[var(--accent-purple)]">a3 v2.6</span>
         </p>
       </footer>
     </main>

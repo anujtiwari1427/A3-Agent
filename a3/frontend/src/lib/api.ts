@@ -101,6 +101,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export const api = {
+  async getGoogleConfig(signal?: AbortSignal): Promise<{ client_id?: string | null }> {
+    return request<{ client_id?: string | null }>("/api/v1/auth/google/config", {}, signal);
+  },
+
+  async loginWithGoogle(credential: string, signal?: AbortSignal): Promise<AuthResponse> {
+    return request<AuthResponse>(
+      "/api/v1/auth/google",
+      {
+        method: "POST",
+        body: JSON.stringify({ credential }),
+      },
+      signal
+    );
+  },
+
   async verifyLicense(licenseKey: string, signal?: AbortSignal): Promise<{ valid: boolean; message: string }> {
     return request<{ valid: boolean; message: string }>(
       "/api/v1/auth/verify-license",
@@ -138,6 +153,14 @@ export const api = {
       },
       signal
     );
+  },
+
+  async logout(signal?: AbortSignal): Promise<void> {
+    try {
+      await request<void>("/api/v1/auth/logout", { method: "POST" }, signal);
+    } catch {
+      // Ignore network errors on logout
+    }
   },
 
   async getMe(signal?: AbortSignal): Promise<UserInfo> {

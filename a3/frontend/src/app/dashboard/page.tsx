@@ -112,6 +112,7 @@ export default function DashboardPage() {
 
   // Handle Logout with complete privacy and cache clearing
   function handleLogout() {
+    api.logout().catch(() => {});
     localStorage.clear();
     sessionStorage.clear();
     setUser(null);

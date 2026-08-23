@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = Field(default=60, ge=5, le=1440)
     LOCAL_LICENSE_KEY: Optional[str] = Field(default=None)
     REQUIRE_LICENSE_KEY: bool = Field(default=False)
+    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None)
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None)
+    GOOGLE_REDIRECT_URI: Optional[str] = Field(default=None)
     LOCAL_ADMIN_EMAIL: str = "admin@localhost"
     LOCAL_ADMIN_PASSWORD: Optional[str] = None
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
