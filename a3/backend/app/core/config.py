@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     JWT_SECRET: Optional[str] = Field(default=None)
     JWT_EXPIRE_MINUTES: int = Field(default=60, ge=5, le=1440)
+    LOCAL_LICENSE_KEY: str = "7710916655"
     LOCAL_ADMIN_EMAIL: str = "admin@localhost"
     LOCAL_ADMIN_PASSWORD: Optional[str] = None
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]

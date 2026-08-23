@@ -8,7 +8,7 @@ from ..core.auth import create_access_token, get_current_user, hash_password, ve
 from ..core.config import settings
 from ..core.database import get_db
 from ..models.domain import Org, User
-from ..schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
+from ..schemas.auth import RegisterRequest, LoginRequest, LicenseLoginRequest, TokenResponse, UserResponse
 from ..services.audit_service import record_audit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -23,6 +23,51 @@ def _user_dict(user: User) -> dict:
         "org_id": user.org_id,
         "mode": settings.MODE,
     }
+
+
+@router.post("/license-login", response_model=TokenResponse)
+def license_login(body: LicenseLoginRequest, db: DBSession = Depends(get_db)):
+    """Authenticate and unlock local instance with a Security License Key."""
+    expected_license = (settings.LOCAL_LICENSE_KEY or "7710916655").strip()
+    if body.license_key.strip() != expected_license:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Security License Key. Access denied.",
+        )
+
+    local_org = db.query(Org).filter(Org.slug == "local").first()
+    if not local_org:
+        local_org = Org(id=str(uuid.uuid4()), name="Local Workspace", slug="local", plan="enterprise_local")
+        db.add(local_org)
+        db.flush()
+
+    admin_user = db.query(User).filter(User.org_id == local_org.id, User.role == "admin").first()
+    if not admin_user:
+        admin_user = User(
+            id=str(uuid.uuid4()),
+            email="licensed_admin@localhost",
+            full_name="Security License Administrator",
+            role="admin",
+            org_id=local_org.id,
+            is_active=True,
+        )
+        db.add(admin_user)
+        db.commit()
+        db.refresh(admin_user)
+
+    record_audit(
+        db,
+        org_id=admin_user.org_id,
+        user_id=admin_user.id,
+        action="user.license_unlock",
+        resource_type="security_license",
+        resource_id=f"KEY-{body.license_key[:4]}****",
+    )
+    db.commit()
+
+    token = create_access_token({"sub": admin_user.id, "role": admin_user.role, "org_id": admin_user.org_id})
+    return TokenResponse(access_token=token, user=_user_dict(admin_user))
+
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)

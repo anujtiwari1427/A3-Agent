@@ -24,6 +24,10 @@ class LoginRequest(BaseModel):
         return str(value).strip().lower()
 
 
+class LicenseLoginRequest(BaseModel):
+    license_key: str = Field(min_length=1, max_length=128)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

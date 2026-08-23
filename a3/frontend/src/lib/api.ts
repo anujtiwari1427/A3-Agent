@@ -1,5 +1,6 @@
 import {
   UserInfo,
+  AuthResponse,
   DatasetInfo,
   AnalyticsData,
   ForecastData,
@@ -86,6 +87,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export const api = {
+  async loginWithLicense(licenseKey: string, signal?: AbortSignal): Promise<AuthResponse> {
+    return request<AuthResponse>(
+      "/api/v1/auth/license-login",
+      {
+        method: "POST",
+        body: JSON.stringify({ license_key: licenseKey }),
+      },
+      signal
+    );
+  },
+
+  async login(email: string, password: string, signal?: AbortSignal): Promise<AuthResponse> {
+    return request<AuthResponse>(
+      "/api/v1/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      },
+      signal
+    );
+  },
+
+  async register(
+    email: string,
+    password: string,
+    fullName?: string,
+    signal?: AbortSignal
+  ): Promise<AuthResponse> {
+    return request<AuthResponse>(
+      "/api/v1/auth/register",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, password, full_name: fullName }),
+      },
+      signal
+    );
+  },
+
   async getMe(signal?: AbortSignal): Promise<UserInfo> {
     return request<UserInfo>("/api/v1/auth/me", {}, signal);
   },

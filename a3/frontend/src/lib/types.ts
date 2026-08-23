@@ -24,6 +24,12 @@ export interface UserInfo {
   mode: string;
 }
 
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: UserInfo;
+}
+
 export interface DatasetInfo {
   id: string;
   org_id: string;
