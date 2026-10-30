@@ -29,20 +29,31 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addToast = useCallback((message: string, type: ToastType = "info", title?: string) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, message, title }]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 4500);
+    setToasts((prev) => {
+      // Prevent stacking duplicate toasts
+      if (prev.some((t) => t.message === message && t.type === type)) {
+        return prev;
+      }
+      const id = Math.random().toString(36).substring(2, 9);
+      setTimeout(() => {
+        removeToast(id);
+      }, 4500);
+      return [...prev, { id, type, message, title }];
+    });
   }, [removeToast]);
 
-  const value: ToastContextType = {
+  const success = useCallback((msg: string, title?: string) => addToast(msg, "success", title), [addToast]);
+  const error = useCallback((msg: string, title?: string) => addToast(msg, "error", title), [addToast]);
+  const info = useCallback((msg: string, title?: string) => addToast(msg, "info", title), [addToast]);
+  const warning = useCallback((msg: string, title?: string) => addToast(msg, "warning", title), [addToast]);
+
+  const value = React.useMemo<ToastContextType>(() => ({
     toast: addToast,
-    success: (msg, title) => addToast(msg, "success", title),
-    error: (msg, title) => addToast(msg, "error", title),
-    info: (msg, title) => addToast(msg, "info", title),
-    warning: (msg, title) => addToast(msg, "warning", title),
-  };
+    success,
+    error,
+    info,
+    warning,
+  }), [addToast, success, error, info, warning]);
 
   const getBorderColor = (type: ToastType) => {
     switch (type) {

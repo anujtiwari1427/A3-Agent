@@ -65,13 +65,16 @@ export default function DashboardPage() {
 
   // 1. Initial Workspace and Datasets Loading
   useEffect(() => {
+    let isMounted = true;
     api
       .getMe()
       .then((userData) => {
+        if (!isMounted) return;
         setUser(userData);
         loadDatasetsList();
       })
       .catch(() => {
+        if (!isMounted) return;
         setUser({
           id: "local-user",
           email: "admin@localhost",
@@ -82,7 +85,11 @@ export default function DashboardPage() {
         });
         loadDatasetsList();
       });
-  }, [loadDatasetsList]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Run once on initial mount
 
   // 2. Load statistical profile when active dataset changes
   useEffect(() => {
