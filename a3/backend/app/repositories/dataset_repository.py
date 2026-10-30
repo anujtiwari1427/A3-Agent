@@ -29,16 +29,13 @@ class DatasetRepository:
         self, current_user: User, offset: int = 0, limit: int = 50
     ) -> List[Dataset]:
         """List datasets accessible to current_user."""
-        q = self.db.query(Dataset).filter(Dataset.org_id == current_user.org_id)
-        if settings.MODE == "local":
-            # Strict personal ownership in local mode
-            q = q.filter(Dataset.uploaded_by == current_user.id)
-        else:
-            # Cloud mode: own datasets OR organization-visible datasets
-            q = q.filter(
-                (Dataset.uploaded_by == current_user.id)
-                | (Dataset.visibility == "organization")
+        q = (
+            self.db.query(Dataset)
+            .filter(
+                Dataset.org_id == current_user.org_id,
+                Dataset.uploaded_by == current_user.id,
             )
+        )
         return (
             q.order_by(Dataset.created_at.desc())
             .offset(offset)
@@ -48,15 +45,14 @@ class DatasetRepository:
 
     def count_for_user(self, current_user: User) -> int:
         """Count datasets accessible to current_user."""
-        q = self.db.query(Dataset).filter(Dataset.org_id == current_user.org_id)
-        if settings.MODE == "local":
-            q = q.filter(Dataset.uploaded_by == current_user.id)
-        else:
-            q = q.filter(
-                (Dataset.uploaded_by == current_user.id)
-                | (Dataset.visibility == "organization")
+        return (
+            self.db.query(Dataset)
+            .filter(
+                Dataset.org_id == current_user.org_id,
+                Dataset.uploaded_by == current_user.id,
             )
-        return q.count()
+            .count()
+        )
 
     def get_for_org(self, dataset_id: str, org_id: str) -> Optional[Dataset]:
         """Legacy internal helper scoped by organization."""

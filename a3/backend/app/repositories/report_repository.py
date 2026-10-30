@@ -33,9 +33,10 @@ class ReportRepository:
         limit: int = 50,
     ) -> List[Report]:
         """List reports accessible to current_user."""
-        q = self.db.query(Report).filter(Report.org_id == current_user.org_id)
-        if settings.MODE == "local":
-            q = q.filter(Report.created_by == current_user.id)
+        q = self.db.query(Report).filter(
+            Report.org_id == current_user.org_id,
+            Report.created_by == current_user.id,
+        )
         if dataset_id:
             q = q.filter(Report.dataset_id == dataset_id)
         return (
@@ -46,10 +47,14 @@ class ReportRepository:
         )
 
     def count_for_user(self, current_user: User) -> int:
-        q = self.db.query(Report).filter(Report.org_id == current_user.org_id)
-        if settings.MODE == "local":
-            q = q.filter(Report.created_by == current_user.id)
-        return q.count()
+        return (
+            self.db.query(Report)
+            .filter(
+                Report.org_id == current_user.org_id,
+                Report.created_by == current_user.id,
+            )
+            .count()
+        )
 
     def get_for_org(self, report_id: str, org_id: str) -> Optional[Report]:
         return (

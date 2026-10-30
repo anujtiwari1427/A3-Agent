@@ -30,9 +30,10 @@ class JobRepository:
         self, current_user: User, offset: int = 0, limit: int = 50
     ) -> List[Job]:
         """List background jobs belonging to current_user."""
-        q = self.db.query(Job).filter(Job.org_id == current_user.org_id)
-        if settings.MODE == "local":
-            q = q.filter(Job.user_id == current_user.id)
+        q = self.db.query(Job).filter(
+            Job.org_id == current_user.org_id,
+            Job.user_id == current_user.id,
+        )
         return (
             q.order_by(Job.created_at.desc())
             .offset(offset)

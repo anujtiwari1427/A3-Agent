@@ -13,11 +13,10 @@ A3-Agent is architected with strict, privacy-by-default multi-user isolation acr
 ### Multi-User Privacy Architecture
 
 1. **Private Personal Workspaces**:
-   - Every local and cloud user is registered with an independent, dedicated personal workspace (unique `org_id` and unique workspace slug).
+   - Every user is registered with an independent, dedicated personal workspace (unique `org_id` and unique workspace slug).
    - No shared global workspaces: User A and User B operate in completely distinct boundaries.
 2. **Owner-Scoped Dataset Access**:
-   - In Local Mode, datasets are strictly restricted to `dataset.org_id == current_user.org_id` AND `dataset.uploaded_by == current_user.id`.
-   - In Cloud Mode, datasets are private to the creator by default, with explicit opt-in sharing (`visibility = 'organization'`).
+   - Datasets are strictly restricted to `dataset.org_id == current_user.org_id` AND `dataset.uploaded_by == current_user.id`.
 3. **Server-Side Authorization & Anti-IDOR Enforcement**:
    - All dataset, profiling, analytics, forecasting, anomaly detection, cleaning, AI Copilot, reports, background jobs, and API key endpoints verify ownership via centralized repository helpers (`DatasetRepository.get_for_user`, `ReportRepository.get_for_user`, `JobRepository.get_for_user`).
    - If a user attempts to access another user's dataset by guessing or specifying an ID, the server returns `404 Not Found`, eliminating information leakage and ID enumeration.

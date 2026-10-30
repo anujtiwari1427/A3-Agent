@@ -74,6 +74,4 @@ The **A3-Agent Intelligence & Analytics Platform** is a modern, modular SaaS pla
 - **Repositories**: Database isolation layer managing ORM queries and multi-tenant scoping.
 - **Core**: Configuration, database connection pooling, JWT and API key security, and storage abstractions.
 
-### 2.3 Storage Layer
-- **LocalStorageProvider**: Atomic file writes, path traversal verification, and safe directory resolution.
-- **SupabaseStorageProvider**: Cloud blob adapter.
+- **LocalStorageProvider**: Partitioned directory isolation, atomic file writes, path traversal verification, and safe directory resolution.

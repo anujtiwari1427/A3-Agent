@@ -76,37 +76,7 @@ class LocalStorageProvider(StorageProvider):
         return f"file://{target}"
 
 
-class SupabaseStorageProvider(StorageProvider):
-    def __init__(self, supabase_url: str, service_key: str, bucket: str = "datasets"):
-        self.supabase_url = supabase_url
-        self.service_key = service_key
-        self.bucket = bucket
-        # Local fallback if client is not configured
-        self._fallback = LocalStorageProvider()
-
-    async def upload(self, file_bytes: bytes, path: str) -> str:
-        # Standard cloud adapter implementation; falls back safely if offline
-        return await self._fallback.upload(file_bytes, path)
-
-    async def download(self, path: str) -> bytes:
-        return await self._fallback.download(path)
-
-    async def delete(self, path: str) -> None:
-        await self._fallback.delete(path)
-
-    async def exists(self, path: str) -> bool:
-        return await self._fallback.exists(path)
-
-    async def get_url(self, path: str) -> str:
-        return await self._fallback.get_url(path)
-
-
 def get_storage_provider() -> StorageProvider:
-    if settings.MODE == "cloud" and settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
-        return SupabaseStorageProvider(
-            supabase_url=settings.SUPABASE_URL,
-            service_key=settings.SUPABASE_SERVICE_ROLE_KEY,
-        )
     return LocalStorageProvider()
 
 

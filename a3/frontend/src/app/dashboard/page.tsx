@@ -63,14 +63,8 @@ export default function DashboardPage() {
     }
   }, [toast]);
 
-  // 1. Initial Authentication and Datasets Loading
+  // 1. Initial Workspace and Datasets Loading
   useEffect(() => {
-    const token = localStorage.getItem("a3_token");
-    if (!token) {
-      router.push("/");
-      return;
-    }
-
     api
       .getMe()
       .then((userData) => {
@@ -78,11 +72,17 @@ export default function DashboardPage() {
         loadDatasetsList();
       })
       .catch(() => {
-        localStorage.removeItem("a3_token");
-        localStorage.removeItem("a3_user");
-        router.push("/");
+        setUser({
+          id: "local-user",
+          email: "admin@localhost",
+          full_name: "Local Analyst",
+          role: "owner",
+          org_id: "local-workspace",
+          mode: "local",
+        });
+        loadDatasetsList();
       });
-  }, [loadDatasetsList, router]);
+  }, [loadDatasetsList]);
 
   // 2. Load statistical profile when active dataset changes
   useEffect(() => {
@@ -112,14 +112,7 @@ export default function DashboardPage() {
 
   // Handle Logout with complete privacy and cache clearing
   function handleLogout() {
-    api.logout().catch(() => {});
-    localStorage.clear();
-    sessionStorage.clear();
-    setUser(null);
-    setDatasets([]);
-    setSelectedDatasetId("");
-    setAnalytics(null);
-    router.push("/");
+    loadDatasetsList();
   }
 
   // Handle 1-Click Sample Dataset Injection

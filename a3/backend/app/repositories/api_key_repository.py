@@ -51,16 +51,26 @@ class ApiKeyRepository:
         )
 
     def list_for_user(self, current_user: User) -> List[ApiKey]:
-        q = self.db.query(ApiKey).filter(ApiKey.org_id == current_user.org_id)
-        if settings.MODE == "local":
-            q = q.filter(ApiKey.user_id == current_user.id)
-        return q.order_by(ApiKey.created_at.desc()).all()
+        return (
+            self.db.query(ApiKey)
+            .filter(
+                ApiKey.org_id == current_user.org_id,
+                ApiKey.user_id == current_user.id,
+            )
+            .order_by(ApiKey.created_at.desc())
+            .all()
+        )
 
     def revoke_for_user(self, key_id: str, current_user: User) -> bool:
-        q = self.db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.org_id == current_user.org_id)
-        if settings.MODE == "local":
-            q = q.filter(ApiKey.user_id == current_user.id)
-        key = q.first()
+        key = (
+            self.db.query(ApiKey)
+            .filter(
+                ApiKey.id == key_id,
+                ApiKey.org_id == current_user.org_id,
+                ApiKey.user_id == current_user.id,
+            )
+            .first()
+        )
         if not key:
             return False
         key.is_active = False

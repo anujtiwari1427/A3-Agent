@@ -11,7 +11,7 @@ interface HeaderProps {
   onSelectDataset: (id: string) => void;
   onUploadClick: () => void;
   onSampleClick: (type: string) => void;
-  onLogout: () => void;
+  onLogout?: () => void;
   isLoadingSample?: boolean;
 }
 
@@ -123,18 +123,15 @@ export function Header({
           <span>↑ Upload Dataset</span>
         </Button>
 
-        {/* User profile & Logout */}
-        <div className="flex items-center gap-2 pl-3 border-l border-white/10">
+        {/* User profile */}
+        <div className="flex items-center gap-2.5 pl-3 border-l border-white/10">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-xs font-bold text-emerald-400">
             {user?.full_name ? user.full_name[0].toUpperCase() : user?.email ? user.email[0].toUpperCase() : "A"}
           </div>
-          <button
-            onClick={onLogout}
-            title="Sign out"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors text-xs cursor-pointer"
-          >
-            ↪ Sign Out
-          </button>
+          <div className="hidden sm:flex flex-col">
+            <span className="text-xs font-medium text-white">{user?.full_name || "Workspace"}</span>
+            <span className="text-[10px] text-[var(--accent-emerald)] font-mono">Local Active</span>
+          </div>
         </div>
       </div>
     </header>

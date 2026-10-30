@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    MODE=cloud \
+    MODE=local \
     PORT=8000
 
 COPY requirements.txt .

@@ -34,14 +34,11 @@ logger = logging.getLogger(__name__)
 
 
 def _initialize_database() -> None:
-    """Create tables for local-first development; cloud uses migrations."""
-    if settings.MODE == "local":
-        Base.metadata.create_all(bind=engine)
+    """Create tables for local development."""
+    Base.metadata.create_all(bind=engine)
 
 
 def _seed_local_admin() -> None:
-    if settings.MODE != "local":
-        return
     db = SessionLocal()
     try:
         if db.query(User).count() > 0:

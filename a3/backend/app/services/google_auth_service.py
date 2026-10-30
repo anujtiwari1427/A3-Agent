@@ -155,7 +155,7 @@ def authenticate_or_register_google_user(
         id=str(uuid.uuid4()),
         name=workspace_name,
         slug=workspace_slug,
-        plan="personal" if settings.MODE == "local" else "free",
+        plan="personal",
     )
     db.add(org)
     db.flush()

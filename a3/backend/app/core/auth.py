@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import hashlib
 import secrets
+import uuid
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
@@ -119,7 +120,36 @@ def get_current_user(
             if user and user.is_active:
                 return user
 
-    raise credentials_exception
+    # 3. No login required: default to active local user
+    user = db.query(User).filter(User.is_active == True).first()
+    if user:
+        return user
+
+    # Provision default local workspace and user if database has no active user
+    org = db.query(Org).first()
+    if not org:
+        org = Org(
+            id=str(uuid.uuid4()),
+            name="Personal Workspace",
+            slug=f"ws-{uuid.uuid4().hex[:8]}",
+            plan="personal",
+        )
+        db.add(org)
+        db.flush()
+
+    user = User(
+        id=str(uuid.uuid4()),
+        email=settings.LOCAL_ADMIN_EMAIL,
+        hashed_password=hash_password(settings.LOCAL_ADMIN_PASSWORD or "local-pass"),
+        full_name="Local Analyst",
+        role="owner",
+        org_id=org.id,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def require_role(min_role: str):

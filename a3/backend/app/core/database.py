@@ -3,13 +3,13 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 from .config import settings
 
-DATABASE_URL = settings.DATABASE_URL if settings.MODE == "local" else settings.CLOUD_DATABASE_URL
+DATABASE_URL = settings.DATABASE_URL
 
 if not DATABASE_URL:
     raise RuntimeError("Database URL is not configured")
 
 engine_kwargs = {"pool_pre_ping": True}
-if settings.MODE == "local":
+if DATABASE_URL.startswith("sqlite"):
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
