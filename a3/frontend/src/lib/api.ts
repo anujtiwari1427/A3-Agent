@@ -67,24 +67,31 @@ async function request<T>(
     let errorDetail = `Request failed with status ${res.status}`;
     let errorCode: string | undefined = undefined;
     try {
-      const errJson: unknown = await res.json();
-      if (isRecord(errJson)) {
-        if (typeof errJson.detail === "string") {
-          errorDetail = errJson.detail;
-        } else if (Array.isArray(errJson.detail)) {
-          errorDetail = errJson.detail
-            .map((item) => {
-              if (isRecord(item) && typeof item.msg === "string") {
-                const loc = Array.isArray(item.loc) ? item.loc.slice(1).join(" ") : "";
-                return loc ? `${loc}: ${item.msg}` : item.msg;
-              }
-              return String(item);
-            })
-            .join(". ");
-        } else if (typeof errJson.message === "string") {
-          errorDetail = errJson.message;
+      const text = await res.text();
+      try {
+        const errJson: unknown = JSON.parse(text);
+        if (isRecord(errJson)) {
+          if (typeof errJson.detail === "string") {
+            errorDetail = errJson.detail;
+          } else if (Array.isArray(errJson.detail)) {
+            errorDetail = errJson.detail
+              .map((item) => {
+                if (isRecord(item) && typeof item.msg === "string") {
+                  const loc = Array.isArray(item.loc) ? item.loc.slice(1).join(" ") : "";
+                  return loc ? `${loc}: ${item.msg}` : item.msg;
+                }
+                return String(item);
+              })
+              .join(". ");
+          } else if (typeof errJson.message === "string") {
+            errorDetail = errJson.message;
+          }
+          if (typeof errJson.error_code === "string") errorCode = errJson.error_code;
         }
-        if (typeof errJson.error_code === "string") errorCode = errJson.error_code;
+      } catch {
+        if (text.includes("DNS_HOSTNAME_RESOLVED_PRIVATE")) {
+          errorDetail = "Backend is unreachable: BACKEND_API_URL is not set or pointing to localhost on Vercel.";
+        }
       }
     } catch {
       // Keep fallback
