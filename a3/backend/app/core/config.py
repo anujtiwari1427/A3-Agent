@@ -24,7 +24,10 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: Optional[str] = Field(default=None)
     LOCAL_ADMIN_EMAIL: str = "admin@localhost"
     LOCAL_ADMIN_PASSWORD: Optional[str] = None
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "https://a3-agent-omega.vercel.app",
+    ]
 
     model_config = SettingsConfigDict(
         env_file=".env.local",
